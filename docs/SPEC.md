@@ -20,6 +20,8 @@ export interface Conversation {
   aiInvolved: boolean; vendorState: VendorState; billed: boolean;          // billed = vendor counts it as a billable resolution
   humanReplied: boolean | null; reopenCount: number | null; csat: number | null; // csat normalised 0..1 (null if absent)
   channel: string | null; topicText: string | null;                         // topicText only kept in memory, optional
+  agentReplied?: boolean | null; // Zendesk: an agent reply exists but its order after the AI is unknown; counts only with countAgentReplies
+  reopenedAt?: Date | null;      // when the export gives a reopen timestamp: judged against the window; else reopenCount decides
 }
 export interface ColumnMapping { [canonicalField: string]: string | null } // for 'generic' and overrides
 export interface AuditOptions {
@@ -28,13 +30,16 @@ export interface AuditOptions {
   sameTopicOnly: boolean;        // default false; when true repeat contact needs topic similarity >= 0.35 (local TF-IDF cosine)
   negativeCsatThreshold: number; // default 0.4 on the 0..1 scale
   exportEnd?: Date;              // default = max createdAt in file
+  countAgentReplies?: boolean;   // default false; count `agentReplied` (Zendesk "Agent replies") as human_handoff although the order is unconfirmed
 }
+export interface AuditParams { windowDays: number; pricePerResolution: number; negativeCsatThreshold: number; sameTopicOnly: boolean; countAgentReplies: boolean } // the options the audit really used
 export type Verdict = 'strict_pass' | 'confirmed_pass' | 'phantom' | 'fail_unbilled' | 'pending_window' | 'unverifiable';
 // fail_unbilled: a fail signal fired but the vendor did not bill the conversation (not strictly resolved, not phantom).
 export type Reason = 'human_handoff' | 'reopened' | 'repeat_contact' | 'negative_csat' | 'vendor_escalated';
 export interface ConvResult { id: string; verdict: Verdict; reasons: Reason[]; evidence: string[]; }
 export interface AuditReport {
   standardVersion: '0.1'; preset: Preset; rowsRead: number; rowsSkipped: number; warnings: string[];
+  params: AuditParams;           // effective options; the summary and the contribution read these
   period: { start: Date; end: Date };
   aiConversations: number;       // all AI conversations (after dedupe by id)
   billed: number;                // all billed AI conversations, pending and unverifiable included (what the invoice counts)
@@ -66,8 +71,8 @@ Applies to every conversation with `aiInvolved = true`. Let W = windowDays. Conv
 1. If `createdAt > exportEnd − W` → `pending_window` (cannot verify yet; excluded from all rates, shown separately). Nothing else is evaluated.
 2. Fail reasons: any that fire are recorded, each with an evidence string:
    - `vendor_escalated`: vendorState ∈ {escalated, handoff, negative_feedback}.
-   - `human_handoff`: `humanReplied === true` (a human/admin reply after the AI took part; see the Intercom preset for how the order is established).
-   - `reopened`: `reopenCount > 0`.
+   - `human_handoff`: `humanReplied === true` (a human/admin reply after the AI took part; see the Intercom preset for how the order is established). Zendesk `Agent replies` cannot show the order, so it goes to `agentReplied` and counts only when `countAgentReplies` is on (default off, with a report warning).
+   - `reopened`: `reopenCount > 0` (any time), or, when the conversation has a `reopenedAt` timestamp, a reopen within W days of `createdAt` (inclusive).
    - `repeat_contact`: same `customerKey` created another conversation (AI or not, billed or not) with `createdAt` in (this.createdAt, this.createdAt + W]; if `sameTopicOnly`, only when topic similarity ≥ 0.35 and both have topic text. Evidence names the other id and the gap in days (1 decimal).
    - `negative_csat`: `csat !== null && csat < negativeCsatThreshold` (strictly below).
 3. Verdict, in order:

@@ -111,7 +111,7 @@ export const MAPPER_FIELDS: MapperField[] = [
   {
     key: "createdAt",
     label: "Created at",
-    help: "ISO date, or Unix seconds. Dates without a timezone are read as UTC.",
+    help: "ISO date, or Unix seconds. Dates without a timezone are read as UTC. Dates like 05/10/2026 are read day/month or month/day depending on the values in the file.",
     required: true,
   },
   {
@@ -138,6 +138,11 @@ export const MAPPER_FIELDS: MapperField[] = [
     key: "humanReplied",
     label: "Human reply after the AI",
     help: "A yes/no column, or a count above zero.",
+  },
+  {
+    key: "reopenedAt",
+    label: "Reopened at",
+    help: "Optional. When it is given, a reopen counts only if it happened within the window. Without it, any reopen count above zero counts.",
   },
   { key: "reopenCount", label: "Reopen count", help: "Number of times the conversation was reopened." },
   {

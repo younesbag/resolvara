@@ -99,3 +99,17 @@ Reviewed at commit `267d4d4` ("fix: review findings"). New tests are in `src/eng
 - **Nothing persisted:** I grepped `src/engine` and `src/worker` for `fetch(`, `XMLHttpRequest`, `sendBeacon`, `WebSocket`, `EventSource`, `importScripts`, `localStorage`, `sessionStorage`, `indexedDB`, `caches.`, `navigator.storage` and `document.cookie`. There are no matches.
 - **No network calls:** Papaparse is called on a string, with no `download` and no `worker` option.
 - **What stays in memory:** the worker keeps the File reference, `topicText` (≤ 200 characters of subject or body) and the hashed conversations in memory until a reset. This is allowed by the SPEC and nothing is written anywhere.
+
+## Open items: resolved afterwards (commit "fix: final review open items")
+
+Tests: `src/engine/__tests__/open-items.test.ts`.
+
+| Item | Resolution |
+|---|---|
+| MEDIUM Zendesk human reply | Decision: option (b) with the signal off by default. The Zendesk `Agent replies` count is kept in `Conversation.agentReplied`; `humanReplied` stays null. It feeds `human_handoff` only when `AuditOptions.countAgentReplies` is on, set by the checkbox "Count agent replies as human handoff (cannot confirm order)" in the parameters (shown for Zendesk). With the option off the report warns how many AI tickets had an agent reply that was not counted; with it on the report and the evidence line say the order is unconfirmed. A column the user maps by hand as "Human reply after the AI" counts without the option. Standard section 4 and `content/vendor-guides/zendesk.md` state this. |
+| LOW Intercom customer key | `source.author.*` is no longer a customer candidate. It is used only when no contact is present and `source.author.type` is user, lead or contact; a teammate author leaves `customerKey` null. A column set in the mapper is never overridden. |
+| LOW effective options | `AuditReport.params` holds the options the audit used. The summary and `contributionPayload` read them. A fractional window makes `contributionPayload` throw `RangeError`; the worker then sends `payload: null` and the UI disables contributing. |
+| LOW price rounding | The summary prints the price and the total with 2 to 4 decimals, unrounded beyond that (`3 x $0.995 = $2.985`). |
+| LOW slash dates | The parser collects evidence (a first number above 12 means day/month, a second above 12 means month/day) and reads all slash dates in the order the file shows. It warns with the interpretation used; with no evidence it reads month/day and names that, with an example. Applies to created, closed and reopened dates. |
+| LOW reopen signal | New optional `Conversation.reopenedAt` (generic header "Reopened at", mapper field "Reopened at"). With a timestamp, a reopen counts only within W days of creation, in the main audit and in the sensitivity table. Without one, a count above zero counts at any time. Documented in Standard section 4. |
+| LOW JSON wrapper | For a top-level object, every array of objects directly inside it is scored on its first elements (known field names of all presets); the best one is read, with known wrapper names winning ties. |

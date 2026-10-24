@@ -3,6 +3,7 @@
 // JSON arrays, wrapped lists and JSONL are scanned element by element, so a large array is
 // never parsed as one value.
 import Papa from 'papaparse';
+import { GENERIC, PRESET_CANDIDATES, norm } from './presets';
 
 export const MAX_TEXT_CHARS = 400 * 1024 * 1024; // keeps the file well inside V8's string limit
 
@@ -68,6 +69,105 @@ function unwrap(o: Obj, emit: (o: Obj) => boolean): boolean {
   return emit(o);
 }
 
+// Normalised field names of every preset. A record that holds some of them looks like a conversation.
+const KNOWN_KEYS: Set<string> = (() => {
+  const out = new Set<string>();
+  for (const cands of [...Object.values(PRESET_CANDIDATES), GENERIC]) {
+    for (const list of Object.values(cands)) {
+      for (const c of list ?? []) {
+        out.add(norm(c));
+        for (const seg of c.split('.')) if (!/^\d+$/.test(seg)) out.add(norm(seg));
+      }
+    }
+  }
+  out.delete('');
+  return out;
+})();
+
+/** How many keys of these records are field names the presets know (nested keys included). */
+function conversationScore(records: Obj[]): number {
+  let n = 0;
+  const walk = (o: Obj, depth: number) => {
+    for (const [k, v] of Object.entries(o)) {
+      if (KNOWN_KEYS.has(norm(k))) n += 1;
+      if (depth < 2 && isObj(v)) walk(v, depth + 1);
+    }
+  };
+  for (const r of records) walk(r, 0);
+  return n;
+}
+
+const SCORE_SAMPLE = 5;
+
+/**
+ * For `{"links":[...],"conversations":[...]}`: the arrays of objects directly inside the top-level
+ * object, as [start, end] positions of `[` and its `]` (end = text length when the text is cut).
+ * The one whose first elements look most like conversations wins; a tie goes to the first one,
+ * with the known wrapper names (WRAP_KEYS) ahead of unnamed arrays. Null when there is none.
+ */
+function chooseRecordArray(s: string, first: number): [number, number] | null {
+  const found: { start: number; end: number; key: string; sample: Obj[] }[] = [];
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  let strStart = -1;
+  let lastKey = '';
+  let cur: { start: number; end: number; key: string; sample: Obj[] } | null = null;
+  let objStart = -1;
+  for (let i = first; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === 92) esc = true;
+      else if (c === 34) {
+        inStr = false;
+        if (depth === 1) lastKey = s.slice(strStart + 1, i);
+      }
+      continue;
+    }
+    if (c === 34) {
+      inStr = true;
+      strStart = i;
+    } else if (c === 123 /* { */) {
+      if (cur && depth === 2 && objStart < 0 && cur.sample.length < SCORE_SAMPLE) objStart = i;
+      depth += 1;
+    } else if (c === 125 /* } */) {
+      depth -= 1;
+      if (cur && depth === 2 && objStart >= 0) {
+        try {
+          const o: unknown = JSON.parse(s.slice(objStart, i + 1));
+          if (isObj(o)) cur.sample.push(o);
+        } catch {
+          // an unreadable element does not score
+        }
+        objStart = -1;
+      }
+    } else if (c === 91 /* [ */) {
+      if (depth === 1) cur = { start: i, end: s.length, key: lastKey, sample: [] };
+      depth += 1;
+    } else if (c === 93 /* ] */) {
+      depth -= 1;
+      if (cur && depth === 1) {
+        cur.end = i;
+        if (cur.sample.length > 0) found.push(cur);
+        cur = null;
+      }
+    }
+  }
+  if (cur && cur.sample.length > 0) found.push(cur); // the text ends inside this array
+  if (found.length === 0) return null;
+  let best = found[0];
+  let bestScore = -1;
+  for (const f of found) {
+    const sc = conversationScore(f.sample) * 2 + (WRAP_KEYS.includes(f.key) ? 1 : 0);
+    if (sc > bestScore) {
+      best = f;
+      bestScore = sc;
+    }
+  }
+  return [best.start, best.end];
+}
+
 function isJsonl(s: string): boolean {
   const nl = s.indexOf('\n');
   const first = (nl < 0 ? s : s.slice(0, nl)).trim().replace(/,$/, '');
@@ -128,7 +228,17 @@ export function scanJson(
     return stats;
   }
 
-  // Array, or an object that wraps one. Elements are cut out by tracking bracket depth.
+  // Array, or an object that wraps one. Elements are cut out by tracking bracket depth. An object
+  // may wrap several arrays (links, errors, the conversations): pick the one that holds conversations.
+  let begin = first;
+  let stop = s.length;
+  if (s[first] === '{') {
+    const range = chooseRecordArray(s, first);
+    if (range) {
+      begin = range[0];
+      stop = Math.min(s.length, range[1] + 1);
+    }
+  }
   let depth = 0;
   let recDepth = -1; // depth at which the records live
   let inStr = false;
@@ -136,7 +246,7 @@ export function scanJson(
   let start = -1;
   let emitted = 0;
   let lastReport = 0;
-  for (let i = first; i < s.length && live; i++) {
+  for (let i = begin; i < stop && live; i++) {
     const c = s.charCodeAt(i);
     if (inStr) {
       if (esc) esc = false;

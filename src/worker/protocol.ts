@@ -39,7 +39,7 @@ export type WorkerOutput =
       reqId: number;
       report: AuditReport; // results are trimmed to phantom rows only
       summary: string;
-      payload: Contribution;
+      payload: Contribution | null; // null when the window is not a whole number of days
     }
   | { type: "dispute"; reqId: number; csv: string }
   | { type: "error"; stage: "peek" | "parse" | "audit" | "dispute"; message: string };

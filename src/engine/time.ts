@@ -9,6 +9,22 @@ const ISO =
   /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:[.,](\d{1,9}))?)?)?\s*(Z|[+-]\d{2}(?::?\d{2})?)?$/i;
 const NUMERIC = /^\d{9,13}(?:\.\d+)?$/;
 const HAS_TZ = /(?:\bz|gmt|utc|[+-]\d{2}:?\d{2})\s*$/i;
+// 05/10/2026 and 5/10/26, optionally followed by a time. Day/month order is not in the text.
+const SLASH = /^(\d{1,2})\/(\d{1,2})\/(\d{4}|\d{2})(?:[\sT,]+(.*))?$/;
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Read order of a slash date whose parts can both be a month: month/day/year (US) or day/month/year. */
+export type SlashOrder = 'mdy' | 'dmy';
+
+/**
+ * The two numbers of a slash date, or null when the text is not one. A part above 12 can only be
+ * a day, which is how the order of the whole file is worked out.
+ */
+export function slashParts(value: unknown): { first: number; second: number } | null {
+  if (typeof value !== 'string') return null;
+  const m = SLASH.exec(value.trim());
+  return m ? { first: Number(m[1]), second: Number(m[2]) } : null;
+}
 
 function fromEpoch(n: number): Date | null {
   if (!Number.isFinite(n) || n <= 0) return null;
@@ -18,7 +34,12 @@ function fromEpoch(n: number): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-export function parseTimestamp(value: unknown): ParsedTime {
+/**
+ * `slashOrder` only matters for ambiguous slash dates such as 05/10/2026. A value whose first
+ * number is above 12 (13/05/2026) can only be day/month, and one whose second number is above 12
+ * can only be month/day, whatever the order says.
+ */
+export function parseTimestamp(value: unknown, slashOrder: SlashOrder = 'mdy'): ParsedTime {
   if (value instanceof Date) {
     return { date: Number.isNaN(value.getTime()) ? null : value, naive: false };
   }
@@ -51,6 +72,22 @@ export function parseTimestamp(value: unknown): ParsedTime {
       }
     }
     return { date: new Date(t), naive };
+  }
+
+  const sl = SLASH.exec(s);
+  if (sl) {
+    const first = Number(sl[1]);
+    const second = Number(sl[2]);
+    let month = slashOrder === 'dmy' ? second : first;
+    let day = slashOrder === 'dmy' ? first : second;
+    if (month > 12 && day <= 12) [month, day] = [day, month];
+    const year = sl[3].length === 2 ? 2000 + Number(sl[3]) : Number(sl[3]);
+    if (month < 1 || month > 12 || day < 1 || day > 31) return { date: null, naive: false };
+    if (new Date(Date.UTC(year, month - 1, day)).getUTCDate() !== day) return { date: null, naive: false };
+    const text = `${MONTHS[month - 1]} ${day}, ${year} ${sl[4] ?? ''}`.trim();
+    const tz = HAS_TZ.test(text);
+    const ms = Date.parse(tz ? text : `${text} UTC`);
+    return Number.isNaN(ms) ? { date: null, naive: false } : { date: new Date(ms), naive: !tz };
   }
 
   // Other human formats: only trust them when they carry a zone, otherwise read as UTC.

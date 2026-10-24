@@ -2,6 +2,7 @@
 import { TOPIC_THRESHOLD, TopicIndex } from './topic';
 import type {
   AuditOptions,
+  AuditParams,
   AuditReport,
   Conversation,
   ConvResult,
@@ -55,6 +56,14 @@ export function audit(convs: Conversation[], opts: AuditOptions, preset: Preset)
   const windowDays = Number.isFinite(opts.windowDays) && opts.windowDays > 0 ? opts.windowDays : 7;
   const price = Number.isFinite(opts.pricePerResolution) && opts.pricePerResolution > 0 ? opts.pricePerResolution : 0;
   const csatThreshold = Number.isFinite(opts.negativeCsatThreshold) ? opts.negativeCsatThreshold : 0.4;
+  const countAgentReplies = opts.countAgentReplies === true;
+  const params: AuditParams = {
+    windowDays,
+    pricePerResolution: price,
+    negativeCsatThreshold: csatThreshold,
+    sameTopicOnly: opts.sameTopicOnly === true,
+    countAgentReplies,
+  };
   const warnings: string[] = [];
 
   // Deduplicate by id (first row wins) and drop rows without a usable date.
@@ -112,9 +121,13 @@ export function audit(convs: Conversation[], opts: AuditOptions, preset: Preset)
   // W-independent signals.
   const ai: number[] = [];
   const base = new Uint8Array(n);
+  // Reopen timestamps, where the export has them: judged against the window like repeat contact.
+  const reopenAt = new Float64Array(n).fill(NaN);
   let billed = 0;
   let noKey = 0;
   let humanKnown = 0;
+  let agentKnown = 0;
+  let agentUnordered = 0; // AI conversations with an agent reply whose order after the AI is unknown
   let reopenKnown = 0;
   let csatKnown = 0;
   for (let i = 0; i < n; i++) {
@@ -125,12 +138,19 @@ export function audit(convs: Conversation[], opts: AuditOptions, preset: Preset)
     let m = 0;
     if (ESCALATED.has(c.vendorState)) m |= B_VENDOR;
     if (c.humanReplied === true) m |= B_HUMAN;
-    if (c.reopenCount !== null && c.reopenCount > 0) m |= B_REOPEN;
+    else if (c.agentReplied === true) {
+      agentUnordered += 1;
+      if (countAgentReplies) m |= B_HUMAN;
+    }
+    const ra = c.reopenedAt ? c.reopenedAt.getTime() : NaN;
+    if (!Number.isNaN(ra)) reopenAt[i] = ra;
+    else if (c.reopenCount !== null && c.reopenCount > 0) m |= B_REOPEN;
     if (c.csat !== null && c.csat < csatThreshold) m |= B_CSAT;
     base[i] = m;
     if (c.customerKey === null) noKey += 1;
     if (c.humanReplied !== null) humanKnown += 1;
-    if (c.reopenCount !== null) reopenKnown += 1;
+    if (c.agentReplied !== undefined && c.agentReplied !== null) agentKnown += 1;
+    if (c.reopenCount !== null || !Number.isNaN(ra)) reopenKnown += 1;
     if (c.csat !== null) csatKnown += 1;
   }
 
@@ -182,6 +202,7 @@ export function audit(convs: Conversation[], opts: AuditOptions, preset: Preset)
         p.pending += 1;
       } else {
         mask = base[i];
+        if (!Number.isNaN(reopenAt[i]) && reopenAt[i] - t[i] <= wMs) mask |= B_REOPEN;
         if (c.customerKey !== null) {
           other = repeatOf(i, wMs);
           if (other >= 0) mask |= B_REPEAT;
@@ -223,9 +244,17 @@ export function audit(convs: Conversation[], opts: AuditOptions, preset: Preset)
             const gap = ((t[other] - t[i]) / DAY).toFixed(1);
             evidence.push(`The same customer opened conversation ${list[other].id} ${gap} days later.`);
           } else if (reason === 'human_handoff') {
-            evidence.push('A human replied after the AI in this conversation.');
+            evidence.push(
+              c.humanReplied === true
+                ? 'A human replied after the AI in this conversation.'
+                : 'An agent replied in this conversation. The export cannot show whether it came after the AI; it is counted because you turned that option on.',
+            );
           } else if (reason === 'reopened') {
-            evidence.push(`Reopened ${c.reopenCount} ${c.reopenCount === 1 ? 'time' : 'times'}.`);
+            evidence.push(
+              !Number.isNaN(reopenAt[i])
+                ? `Reopened ${Math.max(0, (reopenAt[i] - t[i]) / DAY).toFixed(1)} days after it started.`
+                : `Reopened ${c.reopenCount} ${c.reopenCount === 1 ? 'time' : 'times'}.`,
+            );
           } else if (reason === 'negative_csat') {
             evidence.push(
               `Satisfaction ${(c.csat as number).toFixed(2)} on a 0 to 1 scale, below the ${csatThreshold} threshold.`,
@@ -273,7 +302,18 @@ export function audit(convs: Conversation[], opts: AuditOptions, preset: Preset)
         `${noKey} of ${aiCount} AI conversations have no customer identifier. Repeat contact cannot be checked for them, and those without another fail signal are reported as unverifiable.`,
       );
     }
-    if (humanKnown === 0) warnings.push('No human-reply data was found, so the human_handoff signal is unavailable.');
+    if (agentUnordered > 0 && !countAgentReplies) {
+      warnings.push(
+        `${agentUnordered} AI conversations have an agent reply, but this export cannot show that the reply came after the AI took part, so the human_handoff signal is off for them. Turn on "Count agent replies as human handoff (cannot confirm order)" to include them, knowing some of those replies may predate the AI.`,
+      );
+    } else if (agentUnordered > 0) {
+      warnings.push(
+        `Agent replies are counted as human_handoff for ${agentUnordered} AI conversations, as you chose. The export cannot show that these replies came after the AI took part, so some may be false positives.`,
+      );
+    }
+    if (humanKnown === 0 && agentKnown === 0) {
+      warnings.push('No human-reply data was found, so the human_handoff signal is unavailable.');
+    }
     if (reopenKnown === 0) warnings.push('No reopen data was found, so the reopened signal is unavailable.');
     if (csatKnown === 0) warnings.push('No satisfaction scores were found, so the negative_csat signal is unavailable.');
     if (billed === 0) {
@@ -289,6 +329,7 @@ export function audit(convs: Conversation[], opts: AuditOptions, preset: Preset)
   return {
     standardVersion: '0.1',
     preset,
+    params,
     rowsRead: convs.length,
     rowsSkipped: skipped,
     warnings,

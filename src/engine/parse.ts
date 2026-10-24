@@ -22,7 +22,7 @@ import {
   type FieldKey,
 } from './presets';
 import { MAX_TEXT_CHARS, scanCsv, scanJson, sniffFormat, stripBom } from './scan';
-import { parseTimestamp } from './time';
+import { parseTimestamp, slashParts, type SlashOrder } from './time';
 import type { ColumnMapping, Conversation, Preset, VendorState } from './types';
 
 type Rec = string[] | Record<string, unknown>;
@@ -126,6 +126,9 @@ interface Plan {
   aiMapped: boolean;
   scaleChoice: CsatScale | null; // chosen in the mapper
   unseen: Set<FieldKey>; // JSON paths read blind: not present in the sampled records
+  explicit: Set<FieldKey>; // fields the user set in the column mapper (null = "not in this file")
+  /** Intercom JSON: the conversation author, used for the customer only when the author is a customer. */
+  author: { type: Getter; email: Getter; id: Getter } | null;
 }
 
 const valueSet = (raw: string | null | undefined): Set<string> | null => {
@@ -181,7 +184,7 @@ function buildPlan(preset: Preset, mapping: ColumnMapping | undefined, src: Sour
   };
   for (const f of Object.keys(own) as FieldKey[]) resolveField(f, own, fuzzyOwn);
   if (preset === 'gorgias') {
-    for (const f of ['billed', 'ai', 'human', 'reopens'] as FieldKey[]) resolveField(f, GENERIC, true);
+    for (const f of ['billed', 'ai', 'human', 'reopenAt', 'reopens'] as FieldKey[]) resolveField(f, GENERIC, true);
   }
 
   const billedMapped = Boolean(mapping?.billed) && explicit.has('billed') && Boolean(cols.billed);
@@ -195,6 +198,15 @@ function buildPlan(preset: Preset, mapping: ColumnMapping | undefined, src: Sour
     aiMapped,
     scaleChoice: parseScale(mapping?.csatScale),
     unseen,
+    explicit,
+    author:
+      preset === 'intercom' && !src.csv
+        ? {
+            type: makePathGetter('source.author.type'),
+            email: makePathGetter('source.author.email'),
+            id: makePathGetter('source.author.id'),
+          }
+        : null,
   };
 }
 
@@ -247,6 +259,8 @@ interface Draft {
   csat: number | null;
   csatNeedsScale: boolean; // `csat` is still the raw value
   humanUnordered?: boolean; // a reply exists but cannot be placed after the AI
+  agentReplied?: boolean | null; // an agent reply exists, order after the AI unknown (Zendesk)
+  customer?: unknown; // overrides the customer column when set (Intercom author fallback)
   closed: unknown;
   topic: string | null;
   channel: string | null;
@@ -301,7 +315,22 @@ function genericDraft(g: (f: FieldKey) => unknown, plan: Plan, heuristicAgentMsg
   };
 }
 
-function intercomDraft(g: (f: FieldKey) => unknown, plan: Plan): Draft {
+const CUSTOMER_AUTHORS = new Set(['user', 'lead', 'contact']);
+
+/**
+ * Intercom: the customer is the first contact on the conversation. Only when no contact is there
+ * is the conversation author used, and only when the author is a customer. On an outbound
+ * conversation the author is a teammate; using their email would merge every such conversation
+ * into one "customer" and invent repeat contacts, so those conversations get no key.
+ */
+function intercomCustomer(g: (f: FieldKey) => unknown, plan: Plan, rec: Rec): unknown {
+  const contact = g('customer');
+  if (str(contact) !== '' || plan.explicit.has('customer') || !plan.author) return contact;
+  if (!CUSTOMER_AUTHORS.has(str(plan.author.type(rec)).toLowerCase())) return null;
+  return str(plan.author.email(rec)) || str(plan.author.id(rec)) || null;
+}
+
+function intercomDraft(g: (f: FieldKey) => unknown, plan: Plan, rec: Rec): Draft {
   const rawState = g('state');
   const st = intercomState(rawState);
   const participated = plan.cols.ai ? toBool(g('ai')) : null;
@@ -335,6 +364,7 @@ function intercomDraft(g: (f: FieldKey) => unknown, plan: Plan): Draft {
     billed,
     state: ai ? st.state : 'not_ai',
     human,
+    customer: intercomCustomer(g, plan, rec),
     humanUnordered: unordered && ai, // only AI conversations use the signal
     reopens: toCount(g('reopens')),
     csat: c.csat,
@@ -353,11 +383,17 @@ function zendeskDraft(g: (f: FieldKey) => unknown, plan: Plan): Draft {
   if (plan.billedMapped) billed = matches(g('billed'), plan.billedValues);
   billed = billed && ai;
   const c = csatDraft(g('csat'), null);
+  // "Agent replies" is a count for the whole ticket. It cannot show the reply came after the AI
+  // took part, so it is kept apart and only counts when the user turns that option on. A column
+  // the user mapped by hand as "Human reply after the AI" is their statement of the order.
+  const confirmed = plan.explicit.has('human');
+  const replied = plan.cols.human ? toHuman(g('human')) : null;
   return {
     ai,
     billed,
     state: ai ? z.state : 'not_ai',
-    human: plan.cols.human ? toHuman(g('human')) : null,
+    human: confirmed ? replied : null,
+    agentReplied: confirmed ? undefined : replied,
     reopens: toCount(g('reopens')),
     csat: c.csat,
     csatNeedsScale: c.needsScale,
@@ -420,6 +456,10 @@ class Collector {
   private tests = 0;
   private badJson = 0;
   private unordered = 0;
+  // Slash dates (05/10/2026) cannot be read until the whole file shows which part is the day.
+  private slash: { conv: Conversation; field: 'createdAt' | 'closedAt' | 'reopenedAt'; raw: string }[] = [];
+  private dmyEvidence = 0; // values whose first number is above 12: day/month
+  private mdyEvidence = 0; // values whose second number is above 12: month/day
 
   constructor(
     private preset: Preset,
@@ -449,7 +489,7 @@ class Collector {
     let d: Draft;
     switch (this.preset) {
       case 'intercom':
-        d = intercomDraft(g, this.plan);
+        d = intercomDraft(g, this.plan, rec);
         break;
       case 'zendesk':
         d = zendeskDraft(g, this.plan);
@@ -470,23 +510,75 @@ class Collector {
     this.ids.add(id);
     if (created.naive) this.naive += 1;
     if (d.humanUnordered) this.unordered += 1;
-    const closed = d.closed === undefined || d.closed === null || str(d.closed) === '' ? null : parseTimestamp(d.closed).date;
+    const blank = (v: unknown) => v === undefined || v === null || str(v) === '';
+    const closed = blank(d.closed) ? null : parseTimestamp(d.closed).date;
+    const reopenRaw = g('reopenAt');
+    const reopened = blank(reopenRaw) ? null : parseTimestamp(reopenRaw).date;
     const conv: Conversation = {
       id,
-      customerKey: this.hash(g('customer')),
+      customerKey: this.hash(d.customer !== undefined ? d.customer : g('customer')),
       createdAt: created.date,
       closedAt: closed,
       aiInvolved: d.ai,
       vendorState: d.state,
       billed: d.billed,
       humanReplied: d.human,
+      agentReplied: d.agentReplied,
       reopenCount: d.reopens,
+      reopenedAt: reopened,
       csat: d.csat,
       channel: d.channel,
       topicText: d.topic,
     };
     if (d.csatNeedsScale) this.pendingCsat.push(conv);
     this.conversations.push(conv);
+    this.noteSlash(conv, 'createdAt', g('created'));
+    this.noteSlash(conv, 'closedAt', d.closed);
+    this.noteSlash(conv, 'reopenedAt', reopenRaw);
+  }
+
+  private noteSlash(conv: Conversation, field: 'createdAt' | 'closedAt' | 'reopenedAt', raw: unknown): void {
+    const p = slashParts(raw);
+    if (!p) return;
+    if (p.first > 12) this.dmyEvidence += 1;
+    if (p.second > 12) this.mdyEvidence += 1;
+    this.slash.push({ conv, field, raw: String(raw).trim() });
+  }
+
+  /** Re-reads every slash date in the order the file shows (month/day when it cannot tell). */
+  private settleSlashDates(warnings: string[]): void {
+    if (this.slash.length === 0) return;
+    const dmy = this.dmyEvidence;
+    const mdy = this.mdyEvidence;
+    const order: SlashOrder = dmy > mdy ? 'dmy' : 'mdy';
+    for (const s of this.slash) {
+      const d = parseTimestamp(s.raw, order).date;
+      if (s.field === 'createdAt') {
+        if (d) s.conv.createdAt = d; // valid in either order, so never null here
+      } else {
+        s.conv[s.field] = d;
+      }
+    }
+    const orderText = order === 'dmy' ? 'day/month/year (DD/MM/YYYY)' : 'month/day/year (MM/DD/YYYY)';
+    if (dmy > 0 && mdy === 0) {
+      warnings.push(
+        `Dates written with slashes were read as ${orderText}, because ${dmy} values have a first number above 12 (it cannot be a month).`,
+      );
+    } else if (mdy > 0 && dmy === 0) {
+      warnings.push(
+        `Dates written with slashes were read as ${orderText}, because ${mdy} values have a second number above 12 (it cannot be a month).`,
+      );
+    } else if (dmy > 0 && mdy > 0) {
+      warnings.push(
+        `Dates written with slashes mix both orders (${dmy} values can only be day/month, ${mdy} only month/day). Values that are ambiguous were read as ${orderText}, the more common order. Check the dates in the export.`,
+      );
+    } else {
+      const ex = this.slash.find((s) => s.field === 'createdAt') ?? this.slash[0];
+      const read = ex.conv[ex.field]?.toISOString().slice(0, 10) ?? 'unknown';
+      warnings.push(
+        `Dates written with slashes, such as "${ex.raw}", are ambiguous: no value shows whether the first number is the day or the month. They were read as ${orderText}, so "${ex.raw}" is ${read}. If your export uses day/month/year, convert the dates to YYYY-MM-DD before auditing.`,
+      );
+    }
   }
 
   addBadJson(n: number) {
@@ -495,6 +587,7 @@ class Collector {
 
   finish(headerWarnings: string[]): Collected {
     const warnings = [...headerWarnings];
+    this.settleSlashDates(warnings);
     // Settle CSAT values whose scale the export does not state.
     if (this.pendingCsat.length > 0) {
       const raws = this.pendingCsat.map((c) => c.csat as number);

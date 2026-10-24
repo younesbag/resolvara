@@ -57,12 +57,22 @@ export function toDisputeCsv(report: AuditReport, convs: Conversation[]): string
 // ---------------------------------------------------------------------------
 
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
+/** Money with at least 2 and at most 4 decimals, so a price like 0.995 and its total are shown unrounded. */
+function money(x: number): string {
+  const [whole, frac = ''] = x.toFixed(4).split('.');
+  return `$${whole}.${frac.replace(/0+$/, '').padEnd(2, '0')}`;
+}
 const day = (d: Date) => (Number.isNaN(d.getTime()) ? 'unknown' : d.toISOString().slice(0, 10));
 
-export function disputeSummaryText(report: AuditReport, opts: AuditOptions, vendorName: string): string {
+/**
+ * The parameters printed here are the ones the audit used (`report.params`), not the caller's raw
+ * options: the audit replaces an invalid window or threshold. `opts` is kept for older callers.
+ */
+export function disputeSummaryText(report: AuditReport, opts: AuditOptions | undefined, vendorName: string): string {
+  void opts;
   const vendor = vendorName.trim() || 'the vendor';
-  const w = opts.windowDays;
-  const price = opts.pricePerResolution > 0 ? `$${opts.pricePerResolution.toFixed(2)}` : null;
+  const { windowDays: w, negativeCsatThreshold, sameTopicOnly, countAgentReplies } = report.params;
+  const price = report.params.pricePerResolution > 0 ? money(report.params.pricePerResolution) : null;
   const reasons = REASON_ORDER.filter((r) => report.byReason[r] > 0)
     .map((r) => `  - ${REASON_TEXT[r]}: ${report.byReason[r]}`)
     .join('\n');
@@ -72,7 +82,7 @@ export function disputeSummaryText(report: AuditReport, opts: AuditOptions, vend
     `Standard: The Strict Resolution Standard, version ${report.standardVersion}`,
     `Vendor: ${vendor}`,
     `Period: ${day(report.period.start)} to ${day(report.period.end)} (UTC)`,
-    `Parameters: ${w}-day window, negative CSAT below ${opts.negativeCsatThreshold.toFixed(2)}, same-topic filter ${opts.sameTopicOnly ? 'on' : 'off'}`,
+    `Parameters: ${w}-day window, negative CSAT below ${negativeCsatThreshold.toFixed(2)}, same-topic filter ${sameTopicOnly ? 'on' : 'off'}${report.preset === 'zendesk' || countAgentReplies ? `, agent replies counted as human handoff ${countAgentReplies ? 'on (order after the AI not confirmed)' : 'off'}` : ''}`,
     ``,
     `AI conversations: ${report.aiConversations}`,
     `Judged (old enough, and with a customer key or a fail signal): ${report.judged}`,
@@ -81,7 +91,7 @@ export function disputeSummaryText(report: AuditReport, opts: AuditOptions, vend
     `Strictly resolved: ${report.strictPass + report.confirmedPass} of ${report.judged} judged (${pct(report.strictRate)})`,
     `Phantom resolutions (billed but not strictly resolved): ${report.phantom}, ${pct(report.phantomShareOfBilled)} of the billed ones that were judged`,
     price
-      ? `Amount in question: ${report.phantom} x ${price} = $${report.dollarsAtRisk.toFixed(2)}`
+      ? `Amount in question: ${report.phantom} x ${price} = ${money(report.dollarsAtRisk)}`
       : `Amount in question: price per resolution not set`,
   ];
   if (reasons) lines.push(``, `Why they failed (a conversation can have several reasons):`, reasons);
@@ -103,7 +113,7 @@ export function disputeSummaryText(report: AuditReport, opts: AuditOptions, vend
     ``,
     `We reviewed our ${vendor} AI agent conversations for ${day(report.period.start)} to ${day(report.period.end)} against a stricter public definition of a resolution (The Strict Resolution Standard, version ${report.standardVersion}, ${w}-day window).`,
     ``,
-    `${report.phantom} of ${report.billedJudged} billed resolutions that we could judge show at least one sign that the issue was not resolved: a repeat contact from the same customer, a human reply after the AI, a reopen, a low satisfaction score, or an escalation state.${price ? ` At ${price} per resolution that is $${report.dollarsAtRisk.toFixed(2)}.` : ''}`,
+    `${report.phantom} of ${report.billedJudged} billed resolutions that we could judge show at least one sign that the issue was not resolved: a repeat contact from the same customer, a human reply after the AI, a reopen, a low satisfaction score, or an escalation state.${price ? ` At ${price} per resolution that is ${money(report.dollarsAtRisk)}.` : ''}`,
     ``,
     `We have attached the list of conversations with the reason for each. Could you review them and tell us which you consider billable under our agreement, and credit the ones that are not? We are happy to go through examples together.`,
     ``,
@@ -130,12 +140,22 @@ function bucket(n: number): Contribution['aiConversationsBucket'] {
 
 const unit = (x: number) => (Number.isFinite(x) ? Math.min(1, Math.max(0, x)) : 0);
 
-/** Aggregates only: no ids, keys, text or timestamps. `vendor` defaults to the preset's vendor. */
+/**
+ * Aggregates only: no ids, keys, text or timestamps. `vendor` defaults to the preset's vendor.
+ * The window comes from `report.params`, the one the audit used. The community benchmark groups
+ * results by whole-day windows, so a fractional window is rejected rather than rounded into a
+ * different bucket. (`opts` is kept for older callers.)
+ */
 export function contributionPayload(
   report: AuditReport,
-  opts: AuditOptions,
+  opts?: AuditOptions,
   vendor?: ContributionVendor,
 ): Contribution {
+  void opts;
+  const windowDays = report.params.windowDays;
+  if (!Number.isInteger(windowDays)) {
+    throw new RangeError(`The contribution needs a whole number of days for the window, not ${windowDays}.`);
+  }
   const span = (report.period.end.getTime() - report.period.start.getTime()) / DAY;
   const share = (r: Reason) => (report.phantom > 0 ? unit(report.byReason[r] / report.phantom) : 0);
   return {
@@ -147,7 +167,7 @@ export function contributionPayload(
     billedRate: unit(report.billedRate),
     strictRate: unit(report.strictRate),
     phantomShareOfBilled: unit(report.phantomShareOfBilled),
-    windowDays: Math.min(365, Math.max(1, Math.round(opts.windowDays))),
+    windowDays: Math.min(365, Math.max(1, windowDays)),
     byReasonShare: {
       human_handoff: share('human_handoff'),
       reopened: share('reopened'),

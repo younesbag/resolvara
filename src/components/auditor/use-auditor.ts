@@ -43,6 +43,7 @@ export const DEFAULT_OPTS: AuditOptions = {
   pricePerResolution: 0,
   sameTopicOnly: false,
   negativeCsatThreshold: 0.4,
+  countAgentReplies: false,
 };
 
 const INITIAL: AuditorState = {

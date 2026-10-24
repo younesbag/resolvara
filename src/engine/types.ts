@@ -22,7 +22,14 @@ export interface Conversation {
   vendorState: VendorState;
   billed: boolean; // billed = vendor counts it as a billable resolution
   humanReplied: boolean | null;
+  /**
+   * An agent reply exists but the export cannot show it came after the AI took part (Zendesk
+   * "Agent replies"). It feeds human_handoff only when AuditOptions.countAgentReplies is on.
+   */
+  agentReplied?: boolean | null;
   reopenCount: number | null;
+  /** When the conversation was reopened, if the export has it. Judged against the window; else the count is used. */
+  reopenedAt?: Date | null;
   csat: number | null; // csat normalised 0..1 (null if absent)
   channel: string | null;
   topicText: string | null; // topicText only kept in memory, optional
@@ -38,6 +45,21 @@ export interface AuditOptions {
   sameTopicOnly: boolean; // default false; when true repeat contact needs topic similarity >= 0.35 (local TF-IDF cosine)
   negativeCsatThreshold: number; // default 0.4 on the 0..1 scale
   exportEnd?: Date; // default = max createdAt in file
+  /**
+   * Count an agent reply as human_handoff even though the export cannot show it came after the AI
+   * (Zendesk "Agent replies"). Default false: the Standard needs the order. Only conversations that
+   * carry `agentReplied` are affected.
+   */
+  countAgentReplies?: boolean;
+}
+
+/** The options the audit actually used, after invalid values were replaced. */
+export interface AuditParams {
+  windowDays: number;
+  pricePerResolution: number;
+  negativeCsatThreshold: number;
+  sameTopicOnly: boolean;
+  countAgentReplies: boolean;
 }
 
 export type Verdict =
@@ -67,6 +89,8 @@ export interface AuditReport {
   rowsRead: number; // conversations handed to the audit
   rowsSkipped: number; // duplicate ids and rows without a usable date
   warnings: string[];
+  /** Effective options. The summary and the contribution read these, never the caller's raw options. */
+  params: AuditParams;
   period: { start: Date; end: Date };
   aiConversations: number;
   billed: number; // all billed AI conversations, pending and unverifiable included (what the invoice counts)

@@ -23,11 +23,13 @@ Legacy accounts may still carry the tag `ai_agent_automated_resolution`, added 7
 1. Choose the Zendesk preset and drop the ticket export. If you also have the Usage CSV, add it as the second file so billed ticket ids can be matched.
 2. If you have no Usage CSV, billed is inferred from `Resolution tier` = Verified (or the legacy tag). Check this in the mapping.
 3. Enter your price per resolution.
-4. Review the flagged list. Contained and Assisted escalation tickets are not billed, so they appear as "not strict" but never as phantom.
+4. **Agent replies are off by default.** The ticket field `Agent replies` is a count for the whole ticket. It cannot show that a reply came after the AI agent took part, and the Standard only counts a human reply that came after the AI. So for Zendesk exports the human-reply signal (`human_handoff`) is off by default, and the report carries a warning saying how many AI tickets have an agent reply that was not counted. To include them, turn on "Count agent replies as human handoff (cannot confirm order)" in the parameters. The report then says some counted replies may predate the AI. If your own export has a column that is only filled when an agent replied after the AI, map it as "Human reply after the AI" and it counts without the option.
+5. Review the flagged list. Contained and Assisted escalation tickets are not billed, so they appear as "not strict" but never as phantom.
 
 ## Caveats
 
 - Native JSON ticket export is reported not to include AI agent tickets (third-party report, unverified). Use CSV, the API or Explore.
+- With the agent-reply option off (the default), a ticket that only a human reply would flag can still pass as strict. Expect fewer phantom resolutions than with the option on, and read the warning in the report.
 - Reopen count and satisfaction come from the ticket data and are not confirmed in the pages read here.
 - The Verified tier already includes an LLM check, so the number of phantom resolutions may be lower than for vendors that bill on silence alone. The Standard still flags repeat contacts and human replies.
 

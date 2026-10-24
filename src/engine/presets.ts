@@ -13,6 +13,7 @@ export type FieldKey =
   | 'state'
   | 'human'
   | 'reopens'
+  | 'reopenAt'
   | 'csat'
   | 'csat2'
   | 'topic'
@@ -42,6 +43,7 @@ export const MAPPING_KEYS: Record<string, FieldKey> = {
   aiInvolved: 'ai',
   humanReplied: 'human',
   reopenCount: 'reopens',
+  reopenedAt: 'reopenAt',
   csat: 'csat',
   topicText: 'topic',
   channel: 'channel',
@@ -61,8 +63,6 @@ export const INTERCOM: Candidates = {
     'contacts.contacts.0.id',
     'contact_ids.0',
     'contacts.0.id',
-    'source.author.email',
-    'source.author.id',
     'contact_id',
     'Contact ID',
     'Contact email',
@@ -167,6 +167,7 @@ export const GENERIC: Candidates = {
   ],
   ai: ['aiinvolved', 'aihandled', 'aiagentparticipated', 'aiparticipated', 'handledbyai', 'isai', 'aiagent'],
   human: ['humanreply', 'humanreplied', 'humanrepliedafterai', 'agentreplied', 'agentreply', 'humaninvolved', 'humanhandoff', 'human', 'handoff'],
+  reopenAt: ['reopenedat', 'lastreopenedat', 'reopendate', 'reopeneddate', 'reopentime', 'reopenedtime'],
   reopens: ['reopens', 'reopencount', 'reopened', 'countreopens', 'timesreopened'],
   csat: ['csat', 'csatscore', 'rating', 'satisfaction', 'satisfactionscore', 'surveyscore', 'customerrating'],
   topic: ['topic', 'subject', 'topictext', 'title', 'firstmessage', 'summary'],

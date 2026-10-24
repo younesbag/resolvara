@@ -16,6 +16,7 @@ import {
   toDisputeCsv,
   type AuditOptions,
   type AuditReport,
+  type Contribution,
   type Conversation,
   type Preset,
 } from "@/engine";
@@ -138,12 +139,18 @@ async function handle(msg: WorkerInput, gen: number): Promise<void> {
       post({ type: "progress", stage: "auditing", p: 0.5 });
       lastOpts = msg.opts;
       fullReport = audit(convs, msg.opts, lastPreset);
+      let payload: Contribution | null = null;
+      try {
+        payload = contributionPayload(fullReport);
+      } catch {
+        payload = null; // a fractional window cannot be filed in the benchmark
+      }
       post({
         type: "audited",
         reqId: msg.reqId,
         report: trimReport(fullReport),
         summary: disputeSummaryText(fullReport, msg.opts, msg.vendorName),
-        payload: contributionPayload(fullReport, msg.opts),
+        payload,
       });
       return;
     }

@@ -167,6 +167,30 @@ export function OptionsPanel({
             </span>
           </label>
         </div>
+
+        {preset === "zendesk" && (
+          <div>
+            <span className="field-label">Human replies</span>
+            <label className="flex min-h-11 cursor-pointer items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1 size-4 shrink-0 accent-[var(--ink)]"
+                checked={opts.countAgentReplies === true}
+                onChange={(e) => onOpts({ countAgentReplies: e.target.checked })}
+              />
+              <span>
+                <span className="font-medium">
+                  Count agent replies as human handoff (cannot confirm order)
+                </span>
+                <span className="mt-0.5 block text-ink-3">
+                  Zendesk&apos;s &quot;Agent replies&quot; is a count for the whole ticket, so it cannot show the
+                  reply came after the AI. Off by default. Turn it on to count any agent reply, knowing
+                  some may predate the AI.
+                </span>
+              </span>
+            </label>
+          </div>
+        )}
       </div>
 
       <details className="mt-6 border-t border-line pt-4">

@@ -1,0 +1,342 @@
+[
+  {
+    "slug": "intercom",
+    "name": "Intercom Fin",
+    "billingUnit": "per outcome (resolution)",
+    "price": "$0.99 per outcome; a minimum monthly commitment applies (the pricing page gives 50 outcomes as an example)",
+    "billsAssumedResolutions": true,
+    "resolutionDefinition": {
+      "quote": "exits the conversation without requesting further assistance",
+      "paraphrase": "Intercom counts a resolution when the customer confirms the answer was satisfactory (confirmed) or leaves without asking for more help (assumed). Both are billed. If the customer comes back seeking help, the resolution is deducted and not charged."
+    },
+    "silenceWindow": "Not stated in Intercom's primary help article. Third-party blogs say 24 hours; unconfirmed.",
+    "exportPath": "Reports > Dataset export (CSV, choose columns, message content not included); Conversations API; S3 JSONL export (Settings > Data > Imports & exports).",
+    "keyFields": [
+      "ai_agent_participated",
+      "ai_agent.resolution_state (assumed_resolution, confirmed_resolution, escalated, negative_feedback, procedure_handoff, null)",
+      "ai_agent.rating",
+      "statistics.count_reopens",
+      "statistics.last_admin_reply_at",
+      "conversation_rating.score",
+      "contact_ids",
+      "created_at"
+    ],
+    "presetSupport": "native",
+    "sources": [
+      { "url": "https://www.intercom.com/pricing", "label": "Intercom pricing page" },
+      { "url": "https://www.intercom.com/help/en/articles/8205718-fin-ai-agent-resolutions", "label": "Intercom help: Fin AI Agent resolutions" },
+      { "url": "https://intercom.help/fin4all/en/articles/10772642-fin-ai-agent-resolutions", "label": "Intercom help (fin4all): Fin resolutions and billing" },
+      { "url": "https://www.intercom.com/help/en/articles/2046229-export-your-conversation-data", "label": "Intercom help: export your conversation data" },
+      { "url": "https://raw.githubusercontent.com/intercom/Intercom-OpenAPI/main/descriptions/2.15/api.intercom.io.yaml", "label": "Intercom OpenAPI spec 2.15" },
+      { "url": "https://developers.intercom.com/docs/references/2.15/changelog.md", "label": "Intercom API 2.15 changelog (renamed resolution states)" },
+      { "url": "https://community.intercom.com/fin-product-feedback-member-group-49/fin-s-flawed-resolution-assumption-10516", "label": "Intercom Community: a customer's review of assumed resolutions" }
+    ],
+    "checkedAt": "2026-10-24",
+    "notes": "Older enum names routed_to_team and abandoned were renamed escalated and negative_feedback; the parser accepts both generations. The exact CSV column headers of the Dataset export are unconfirmed, so a column mapper override is always offered. In a June 2025 Community thread Intercom staff said the billing logic had not been communicated accurately and that they were considering changes to how resolutions are measured."
+  },
+  {
+    "slug": "zendesk",
+    "name": "Zendesk AI agents",
+    "billingUnit": "per Verified resolution (since 2026-05-18), drawn from a dollar allowance",
+    "price": null,
+    "billsAssumedResolutions": true,
+    "resolutionDefinition": {
+      "quote": "handled the interaction to completion without the customer requesting further assistance",
+      "paraphrase": "Zendesk splits automated resolutions into Contained (not billed) and Verified (billed). Verified means the AI resolved the conversation, the customer did not ask for more help, and an LLM review of the ended conversation passed. No explicit customer confirmation is required."
+    },
+    "silenceWindow": "Conversation end: email 72 hours after the first email; messaging 2 hours after the first message by default (extendable to 72 hours); voice at hangup.",
+    "exportPath": "Admin Center > Account > Usage > Resolutions > Actions > Export contributing resolutions (CSV by email, link valid 14 days). Ticket fields are available in Explore and the Support API.",
+    "keyFields": [
+      "Resolution type",
+      "Resolution tier (Assisted escalation, Contained, Verified)",
+      "Channel group",
+      "ticket id",
+      "requester",
+      "legacy tag ai_agent_automated_resolution"
+    ],
+    "presetSupport": "native",
+    "sources": [
+      { "url": "https://support.zendesk.com/hc/en-us/articles/10677925692698-Announcing-changes-to-AI-agent-reporting", "label": "Zendesk: announcing changes to AI agent reporting" },
+      { "url": "https://support.zendesk.com/hc/en-us/articles/9570369117338-About-automated-resolution-tiers", "label": "Zendesk help: about automated resolution tiers" },
+      { "url": "https://support.zendesk.com/hc/en-us/articles/5352026794010-About-automated-resolutions-for-AI-agents", "label": "Zendesk help: about automated resolutions (legacy model)" },
+      { "url": "https://support.zendesk.com/hc/en-us/articles/10479587390106-Managing-resolution-allowances", "label": "Zendesk help: managing resolution allowances" },
+      { "url": "https://support.zendesk.com/hc/en-us/articles/10479485915290-Managing-resolution-usage", "label": "Zendesk help: managing resolution usage (export)" },
+      { "url": "https://support.zendesk.com/hc/en-us/articles/9204149016346", "label": "Zendesk help: resolution fields in Explore" }
+    ],
+    "checkedAt": "2026-10-24",
+    "notes": "The per-resolution price is not stated in the Zendesk help articles read. Third-party figures ($1.50 committed, $2 pay-as-you-go) appear to describe the platform before May 2026 and are unconfirmed for today, so no default price is set. The Usage export lists only billed resolutions; its exact header names are not documented. Join it with a ticket export on ticket id to get requester, timestamps, reopens and satisfaction. Many third-party articles describe the pre-May-2026 model."
+  },
+  {
+    "slug": "ada",
+    "name": "Ada",
+    "billingUnit": "per automated resolution (enterprise option) or per conversation, by contract",
+    "price": null,
+    "billsAssumedResolutions": null,
+    "resolutionDefinition": {
+      "quote": "Relevant, Accurate, Safe, Contained",
+      "paraphrase": "Ada classifies a conversation as resolved only if the answer was relevant, accurate and safe, and the conversation stayed contained (no escalation). The classification is made by an LLM. An escalated conversation is Not Resolved immediately."
+    },
+    "silenceWindow": "Idle web chat and social conversations end after 24 hours; email after 72 hours; the conversation is then classified.",
+    "exportPath": "Data Export API, conversation object. The feature may not be included in every subscription package.",
+    "keyFields": [
+      "automated_resolution_classification",
+      "automated_resolution_classification_reason",
+      "is_escalated",
+      "handoffs",
+      "csat",
+      "end_user_id",
+      "date_created",
+      "is_test_user"
+    ],
+    "presetSupport": "native",
+    "sources": [
+      { "url": "https://docs.ada.cx/docs/generative/measure-success/understand-and-improve-your-ai-agent-s-automated-resolution-rate", "label": "Ada docs: automated resolution rate" },
+      { "url": "https://docs.ada.cx/data-export-conversation-object", "label": "Ada docs: Data Export conversation object" }
+    ],
+    "checkedAt": "2026-10-24",
+    "notes": "Pricing is sales-led and not public. Third-party sources say conversation-based pricing is primary and resolution-based pricing is offered to some enterprises; this is unverified. The exact value strings of automated_resolution_classification are unconfirmed, so the preset matches them case-insensitively and the mapper lets you set which value means billed. csat exists only with CSAT 2.0. end_user_id is pseudonymous but stable per user."
+  },
+  {
+    "slug": "gorgias",
+    "name": "Gorgias AI Agent",
+    "billingUnit": "per automated interaction (also counts as a helpdesk ticket)",
+    "price": "$0.90 per interaction on annual plans, $1.00 on monthly plans; overage $1.50",
+    "billsAssumedResolutions": true,
+    "resolutionDefinition": {
+      "quote": "a customer request that's fully resolved without a human agent",
+      "paraphrase": "An interaction is billed as automated when the AI Agent handled the request and no human agent was involved within 72 hours. If a human replies within 72 hours it is billed only as a ticket. Silence is not distinguished from confirmation."
+    },
+    "silenceWindow": "72 hours without human involvement.",
+    "exportPath": "Inbox view > three-dot menu > Export tickets (CSV by email, up to 1M tickets, link valid 14 days); Analytics drill-down export.",
+    "keyFields": [
+      "Ticket ID",
+      "Tags",
+      "Initial channel",
+      "Last used integration name",
+      "Customer email",
+      "Creation date",
+      "Closed date",
+      "Survey score",
+      "Number of agent messages",
+      "Number of customer messages"
+    ],
+    "presetSupport": "native",
+    "sources": [
+      { "url": "https://www.gorgias.com/pricing", "label": "Gorgias pricing page" },
+      { "url": "https://docs.gorgias.com/en-US/how-youre-billed-for-using-gorgias-199385", "label": "Gorgias docs: how you're billed" },
+      { "url": "https://docs.gorgias.com/en-US/exports-404844", "label": "Gorgias docs: exports" }
+    ],
+    "checkedAt": "2026-10-24",
+    "notes": "No AI-Agent-specific column is documented in the ticket export. The preset infers AI handling from Number of agent messages = 0 plus tags or Last used integration, and asks the user to confirm the inference in the mapper. The AI Agent API fields are unconfirmed."
+  },
+  {
+    "slug": "hubspot",
+    "name": "HubSpot Customer Agent",
+    "billingUnit": "per resolved conversation (credits)",
+    "price": "$0.50 per resolved conversation (50 credits), effective 2026-04-14",
+    "billsAssumedResolutions": true,
+    "resolutionDefinition": {
+      "quote": "sends at least one reply that shares a content source or performs an action",
+      "paraphrase": "A conversation is resolved when the agent replied with a content source or an action and there was no qualifying handoff within 72 hours of the visitor's last message. Only visitor-initiated handoffs qualify. Manual assignment, including through workflows, is not a qualifying handoff, so a human can later handle the thread and it still counts as resolved."
+    },
+    "silenceWindow": "72 hours after the visitor's last message; status is set after the window.",
+    "exportPath": "Service > Customer Agent > Analyze > Reports. Export is not documented in the pages read (unconfirmed). Thread status and closed date are exposed by the Conversations API.",
+    "keyFields": [
+      "thread status",
+      "closed date",
+      "assignee",
+      "associated ticket"
+    ],
+    "presetSupport": "generic",
+    "sources": [
+      { "url": "https://www.hubspot.com/company-news/hubspots-customer-agent-and-prospecting-agent-now-you-pay-when-the-task-is-complete", "label": "HubSpot announcement: pay when the task is complete" },
+      { "url": "https://knowledge.hubspot.com/customer-agent/understand-the-customer-agent", "label": "HubSpot knowledge base: understand the Customer Agent" },
+      { "url": "https://knowledge.hubspot.com/customer-agent/analyze-your-customer-agents-performance", "label": "HubSpot knowledge base: analyze performance" }
+    ],
+    "checkedAt": "2026-10-24",
+    "notes": "No documented resolved-by-agent property was found, so the generic mapper is needed. Email threads reopened after 72 hours can consume more credits. Because manual human assignment does not block the vendor's resolved status, the Standard flags any human reply after the AI as a handoff."
+  },
+  {
+    "slug": "front",
+    "name": "Front Autopilot",
+    "billingUnit": "per conversation, charged once at the highest level reached (Triage, Handoff, Resolution)",
+    "price": "Triage $0.05, Handoff $0.39, Resolution $0.89 per conversation",
+    "billsAssumedResolutions": true,
+    "resolutionDefinition": {
+      "quote": "no follow-up message from a teammate within 24 hours",
+      "paraphrase": "A conversation reaches the Resolution level when no teammate follows up within 24 hours (chat, SMS, WhatsApp, custom channels) or 72 hours (email and portal). Silence is enough."
+    },
+    "silenceWindow": "24 hours for chat, SMS, WhatsApp and custom channels; 72 hours for email and portal.",
+    "exportPath": "Analytics > Conversations export (CSV, 40 columns, date range up to 31 days, up to 100,000 rows). No Autopilot-specific column is listed; AI replies are reviewed in the AI replies hub.",
+    "keyFields": [
+      "Conversation ID",
+      "Status",
+      "Tags",
+      "Contact handles during period",
+      "Channels during period",
+      "First replied at",
+      "Last resolved at",
+      "Messages sent",
+      "Replies to resolution"
+    ],
+    "presetSupport": "generic",
+    "sources": [
+      { "url": "https://help.front.com/en/articles/4890624", "label": "Front help: Autopilot pricing and levels" },
+      { "url": "https://help.front.com/en/articles/4920896", "label": "Front help: Analytics conversations export" }
+    ],
+    "checkedAt": "2026-10-24",
+    "notes": "Autopilot outcomes may be recoverable only through tags or rules; this is unconfirmed. The Front pricing page shows only a starting price of $0.05 per conversation."
+  },
+  {
+    "slug": "help-scout",
+    "name": "Help Scout AI Answers",
+    "billingUnit": "per resolution",
+    "price": "$0.75 per resolution",
+    "billsAssumedResolutions": true,
+    "resolutionDefinition": {
+      "quote": "a single AI chat session that is resolved without help from a human",
+      "paraphrase": "A resolution is billable when the AI gave a real answer and the customer did not ask for more help. It is billed once per session."
+    },
+    "silenceWindow": null,
+    "exportPath": "Review billable conversations under Reports > Scout (view only). Export of those conversations is not stated (unconfirmed). Generic Reports export (CSV/XLSX) exists but is reported to exclude Scout; the Inbox API exposes conversation data.",
+    "keyFields": [],
+    "presetSupport": "generic",
+    "sources": [
+      { "url": "https://docs.helpscout.com/article/1746-ai-resolutions-pricing", "label": "Help Scout docs: AI resolutions pricing" },
+      { "url": "https://docs.helpscout.com/article/849-reports-data-export", "label": "Help Scout docs: reports data export" }
+    ],
+    "checkedAt": "2026-10-24",
+    "notes": "No silence window was found in the pages read. The billable-when-customer-does-not-ask-for-more detail comes from a third-party summary of the same document and is labelled accordingly. Use the Inbox API or a conversation export plus the generic mapper."
+  },
+  {
+    "slug": "salesforce-agentforce",
+    "name": "Salesforce Agentforce for Service",
+    "billingUnit": "per conversation, Flex Credits, or per user (not resolution-based)",
+    "price": "$2 per conversation; Flex Credits $500 per 100k credits (20 credits per action); $125 per user per month employee add-on",
+    "billsAssumedResolutions": null,
+    "resolutionDefinition": {
+      "quote": "$2 per conversation",
+      "paraphrase": "Agentforce is priced per conversation or per action, not per resolution, so there is no billed-resolution definition to audit. The pages read do not define what a conversation is (unconfirmed)."
+    },
+    "silenceWindow": null,
+    "exportPath": "Data Cloud session tracing data model objects (for example std__AiAgentInteractionDmo__dlm).",
+    "keyFields": [
+      "AiAgentSessionId",
+      "AiAgentInteractionType",
+      "StartTimestamp",
+      "EndTimestamp",
+      "IndividualId",
+      "TopicApiName"
+    ],
+    "presetSupport": "generic",
+    "sources": [
+      { "url": "https://www.salesforce.com/agentforce/pricing/", "label": "Salesforce Agentforce pricing" },
+      { "url": "https://developer.salesforce.com/docs/data/data-cloud-dmo-mapping/guide/c360dm-si-aiagentinteractiondmo-dmo.html", "label": "Salesforce developer docs: AiAgentInteraction DMO" }
+    ],
+    "checkedAt": "2026-10-24",
+    "notes": "Field names come from a search summary of the DMO page. The Session Log DMO page returned 403, so session outcome fields are unconfirmed. An auditor can compare conversation counts with outcomes, but the Standard's billed-resolution comparison does not apply directly."
+  },
+  {
+    "slug": "freshworks",
+    "name": "Freshworks Freddy AI Agent",
+    "billingUnit": "per session (not per resolution)",
+    "price": "$49 per 100 additional sessions; the first 500 sessions are included once per account on Growth, Pro and Enterprise",
+    "billsAssumedResolutions": null,
+    "resolutionDefinition": {
+      "quote": "a unique interaction between an end-user and an AI Agent",
+      "paraphrase": "Billing is per session regardless of outcome. An email session covers a 72-hour window from the first email, and all AI replies in it count as one session. Freshservice reports separate resolved, converted to ticket, agent-intervened and unanswered sessions."
+    },
+    "silenceWindow": "Email sessions: 72 hours from the first email.",
+    "exportPath": "Freshservice Freddy AI Agent overview report. A session-level CSV for Freshchat is unconfirmed.",
+    "keyFields": [],
+    "presetSupport": "generic",
+    "sources": [
+      { "url": "https://www.freshworks.com/freshdesk/pricing/", "label": "Freshworks pricing" },
+      { "url": "https://support.freshservice.com/support/solutions/articles/50000010557-freddy-ai-agent-overview-report", "label": "Freshservice: Freddy AI Agent overview report" }
+    ],
+    "checkedAt": "2026-10-24",
+    "notes": "Not billed on resolutions, so phantom resolutions do not apply. The Standard can still be used to measure how many sessions ended without a real resolution, which is a value question rather than a billing dispute."
+  },
+  {
+    "slug": "tidio",
+    "name": "Tidio Lyro",
+    "billingUnit": "per Lyro conversation; pay-per-resolution billing is listed only on the Premium plan",
+    "price": "Lyro from $32.50 per month for 50 conversations; Premium pay-per-resolution price not public (contact for pricing)",
+    "billsAssumedResolutions": null,
+    "resolutionDefinition": {
+      "quote": "at least one reply from our AI Agent",
+      "paraphrase": "The billing unit is a conversation with at least one Lyro reply. Separately, Lyro Analytics treats a conversation as resolved when the visitor left or never asked for a live agent (from a search summary of a page that returned 403)."
+    },
+    "silenceWindow": null,
+    "exportPath": "Unconfirmed.",
+    "keyFields": [],
+    "presetSupport": "generic",
+    "sources": [
+      { "url": "https://www.tidio.com/pricing", "label": "Tidio pricing" },
+      { "url": "https://help.tidio.com/hc/en-us/articles/12642627073948-Lyro-Analytics", "label": "Tidio help: Lyro Analytics (403 on fetch; read via search summary)" }
+    ],
+    "checkedAt": "2026-10-24",
+    "notes": "The Premium resolution definition is not stated on the pricing page. Treat the analytics definition as secondary-source."
+  },
+  {
+    "slug": "decagon",
+    "name": "Decagon",
+    "billingUnit": "per conversation (most customers) or per resolution, by contract",
+    "price": null,
+    "billsAssumedResolutions": null,
+    "resolutionDefinition": {
+      "quote": "arguing over what a 'resolution' is",
+      "paraphrase": "Decagon describes per-resolution pricing as a higher fixed rate per fully resolved conversation with no charge for escalations, and says most customers choose per-conversation pricing. The resolution definition is contractual and not published."
+    },
+    "silenceWindow": null,
+    "exportPath": "Unconfirmed (enterprise).",
+    "keyFields": [],
+    "presetSupport": "generic",
+    "sources": [
+      { "url": "https://decagon.ai/blog/pricing-ai-agents", "label": "Decagon: pricing AI agents" }
+    ],
+    "checkedAt": "2026-10-24",
+    "notes": "No public price. Third-party estimates exist but come from a competitor and are unverified, so none is recorded. If your contract defines a resolution, use the generic mapper with your own transcript export."
+  },
+  {
+    "slug": "sierra",
+    "name": "Sierra",
+    "billingUnit": "per outcome, by contract",
+    "price": null,
+    "billsAssumedResolutions": null,
+    "resolutionDefinition": {
+      "quote": "clear, agreed-upon criteria for each outcome upfront",
+      "paraphrase": "Sierra prices on outcomes such as a resolved support conversation, with criteria agreed per customer in advance. In most cases an unresolved conversation is not charged."
+    },
+    "silenceWindow": null,
+    "exportPath": "Unconfirmed.",
+    "keyFields": [],
+    "presetSupport": "generic",
+    "sources": [
+      { "url": "https://sierra.ai/blog/outcome-based-pricing-for-ai-agents", "label": "Sierra: outcome-based pricing for AI agents" }
+    ],
+    "checkedAt": "2026-10-24",
+    "notes": "Rate and export are not published. The criteria live in your contract; map them in the generic mapper."
+  },
+  {
+    "slug": "kustomer",
+    "name": "Kustomer",
+    "billingUnit": "not published",
+    "price": null,
+    "billsAssumedResolutions": null,
+    "resolutionDefinition": {
+      "quote": "we don't post one-size-fits-all pricing",
+      "paraphrase": "Kustomer does not publish pricing or a resolution definition on the pages read. Kustomer has published material arguing against resolution-based pricing, but that page could not be retrieved."
+    },
+    "silenceWindow": null,
+    "exportPath": "Unconfirmed.",
+    "keyFields": [],
+    "presetSupport": "generic",
+    "sources": [
+      { "url": "https://www.kustomer.com/pricing/", "label": "Kustomer pricing" },
+      { "url": "https://kustomer.com/resources/blog/conversation-vs-resolution-based", "label": "Kustomer blog: conversation vs resolution-based (content not retrievable)" }
+    ],
+    "checkedAt": "2026-10-24",
+    "notes": "Third-party price figures come from competitors and are unverified, so none is recorded."
+  }
+]

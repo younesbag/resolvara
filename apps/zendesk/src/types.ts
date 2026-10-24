@@ -61,6 +61,8 @@ export interface MapInput {
   replyOrder?: Record<number, boolean>;
   /** Ticket ids from the emailed Usage > Resolutions CSV. When present it replaces the tier proxy. */
   billedIds?: number[] | null;
+  /** Tickets the fetcher already dropped because they were created before the period. */
+  preDropped?: number;
 }
 
 export interface MapStats {
@@ -72,5 +74,8 @@ export interface MapStats {
   billedByTier: number;
   billedByUsageCsv: number | null;
   usageCsvUnmatched: number | null; // billed ids in the CSV with no AI ticket in the period
+  aiNotInUsageCsv: number | null; // tickets the tier marks Verified that the CSV does not list (often a date-range mismatch)
+  /** Neither Resolution tier nor Resolution type was found in the account's ticket fields. */
+  fieldsMissing: boolean;
   replyOrderChecked: number;
 }

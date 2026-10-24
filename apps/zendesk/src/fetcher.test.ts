@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EXPORT_MIN_GAP_MS, buildInput, createFetcher, createSession, ensureParams } from "./fetcher";
+import { COMMENT_MIN_GAP_MS, EXPORT_MIN_GAP_MS, buildInput, createFetcher, createSession, ensureParams } from "./fetcher";
 import type { ZTicket } from "./types";
 import { CancelToken, ZendeskError, type Zaf, type ZafRuntime } from "./zaf";
 
@@ -188,5 +188,117 @@ describe("fetcher.checkReplyOrder", () => {
     expect(r.skipped).toBe(2);
     // newest first: tickets 4 and 3 (3 is a 404, so only 4 answered)
     expect(session.replyOrder).toEqual({ 4: true });
+  });
+});
+
+describe("review fixes", () => {
+  it("slims tickets on arrival and drops tickets created before the period (finding 1)", async () => {
+    const rt = fakeRuntime();
+    const big = {
+      ...ticket(1, { created_at: "2026-10-02T00:00:00Z", subject: "x".repeat(500), tags: ["vip", "ai_agent_automated_resolution"] }),
+      description: "y".repeat(5000),
+      fields: [{ id: 11, value: "zd_resolution_tier_core_resolution" }],
+      custom_fields: [
+        { id: 11, value: "zd_resolution_tier_core_resolution" },
+        { id: 99, value: "secret" },
+      ],
+      via: { channel: "web", source: { from: { address: "a@b.c" }, rel: null } },
+    } as unknown as ZTicket;
+    const old = ticket(2, { created_at: "2026-01-01T00:00:00Z" });
+    const { zaf } = fakeZaf(rt, (path) => {
+      if (path.startsWith("/api/v2/ticket_fields")) return { ticket_fields: [{ id: 11, key: "standard::resolution_tier" }] };
+      if (path.includes("support_type_scope")) return { tickets: [big, old], metric_sets: [{ ticket_id: 2, replies: 1 }], end_of_stream: true };
+      return { tickets: [old], end_of_stream: true };
+    });
+    const session = createSession(new Date("2026-09-24T00:00:00Z"));
+    const input = await createFetcher(zaf, rt).run(session);
+    const t = input.aiTickets[0] as unknown as Record<string, unknown>;
+    expect(input.aiTickets.map((x) => x.id)).toEqual([1]);
+    expect(input.otherTickets).toEqual([]);
+    expect(input.preDropped).toBe(1); // counted once although both exports returned it
+    expect(input.metricSets).toEqual([]);
+    expect(t.description).toBeUndefined();
+    expect(t.fields).toBeUndefined();
+    expect(t.custom_fields).toEqual([{ id: 11, value: "zd_resolution_tier_core_resolution" }]);
+    expect(t.tags).toEqual(["ai_agent_automated_resolution"]);
+    expect(t.via).toEqual({ channel: "web" });
+    expect((t.subject as string).length).toBe(200);
+  });
+
+  it("uses the end of the AI export as the snapshot time (finding 10)", async () => {
+    const rt = fakeRuntime();
+    let aiEnd = 0;
+    const { zaf } = fakeZaf(rt, (path) => {
+      if (path.startsWith("/api/v2/ticket_fields")) return { ticket_fields: [] };
+      if (path.includes("support_type_scope")) {
+        aiEnd = rt.now();
+        return { tickets: [ticket(1)], end_of_stream: true };
+      }
+      return { tickets: [ticket(9)], end_of_stream: true };
+    });
+    const session = createSession(new Date("2026-09-24T00:00:00Z"));
+    const input = await createFetcher(zaf, rt).run(session);
+    expect(Date.parse(input.fetchedAt)).toBe(aiEnd);
+    expect(input.fields).toEqual({ tier: null, type: null });
+  });
+});
+
+describe("reply-order review fixes", () => {
+  function setup(verdictFor: (id: number) => "marked" | "unmarked") {
+    const rt = fakeRuntime();
+    const session = createSession(new Date("2026-09-24T00:00:00Z"));
+    for (let id = 1; id <= 4; id++) {
+      session.ai.tickets.set(id, ticket(id, { created_at: `2026-10-0${id}T00:00:00Z` }));
+      session.ai.metricSets.set(id, { ticket_id: id, replies: 1 });
+    }
+    const { zaf, calls } = fakeZaf(rt, (path) => {
+      const id = Number(path.split("/")[4]);
+      const marked = verdictFor(id) === "marked";
+      return {
+        comments: [
+          { id: 1, author_id: 7, public: true, created_at: "2026-10-01T00:00:00Z", via: marked ? { channel: "ai_agent" } : null },
+          { id: 2, author_id: 8, public: true, created_at: "2026-10-01T01:00:00Z" },
+        ],
+        users: [{ id: 7, role: "end-user" }, { id: 8, role: "agent" }],
+      };
+    });
+    return { rt, zaf, calls, session };
+  }
+
+  it("never re-reads a ticket whose order stayed unknown, and counts it in the cap (finding 5)", async () => {
+    const { rt, zaf, calls, session } = setup((id) => (id % 2 ? "unmarked" : "marked"));
+    const f = createFetcher(zaf, rt);
+    const r1 = await f.checkReplyOrder(session, { cap: 2 });
+    expect(r1).toMatchObject({ attempted: 2, checked: 1, candidates: 4, skipped: 2 });
+    expect(f.replyOrderCandidates(session).sort()).toEqual([1, 2]);
+    const r2 = await f.checkReplyOrder(session, { cap: 10 });
+    expect(r2).toMatchObject({ attempted: 4, checked: 2, skipped: 0 });
+    expect(calls).toHaveLength(4); // each ticket read exactly once across both runs
+    expect(f.replyOrderCandidates(session)).toEqual([]);
+  });
+
+  it("paces comment reads", async () => {
+    const { rt, zaf, calls, session } = setup(() => "marked");
+    await createFetcher(zaf, rt).checkReplyOrder(session);
+    const at = calls.map((c) => c.at).sort((a, b) => a - b);
+    for (let i = 1; i < at.length; i++) expect(at[i] - at[i - 1]).toBeGreaterThanOrEqual(COMMENT_MIN_GAP_MS);
+  });
+
+  it("after Stop, no progress is reported and the call settles without rejecting early (finding 4)", async () => {
+    const { rt, zaf, session } = setup(() => "marked");
+    const token = new CancelToken();
+    const progress: number[] = [];
+    const p = createFetcher(zaf, rt).checkReplyOrder(session, {
+      token,
+      onProgress: (pr) => {
+        progress.push(pr.done ?? 0);
+        if ((pr.done ?? 0) >= 1) token.cancel();
+      },
+    });
+    await expect(p).rejects.toMatchObject({ kind: "cancelled" });
+    const after = progress.length;
+    await new Promise((r) => setTimeout(r, 0));
+    expect(progress.length).toBe(after);
+    expect(progress.at(-1)).toBe(1);
   });
 });

@@ -257,6 +257,13 @@ function BilledPanel({ api }: { api: AppApi }) {
               </>
             )}
           </p>
+          {stats && (stats.aiNotInUsageCsv ?? 0) > 0 && (
+            <p className="mt-2 text-accent-ink">
+              {int(stats.aiNotInUsageCsv ?? 0)} tickets marked Verified resolution are not in this file, so they now count
+              as not billed. If the file covers different dates than the audit period, export it for the same dates or go
+              back to the proxy.
+            </p>
+          )}
           <button type="button" className="mt-3 font-medium underline underline-offset-2" onClick={api.clearUsageCsv}>
             Go back to the Resolution tier proxy
           </button>
@@ -275,6 +282,12 @@ function BilledPanel({ api }: { api: AppApi }) {
             . That is a proxy for what Zendesk charges. For the exact list, add the Usage, Resolutions CSV that
             Zendesk emails you from Admin Center.
           </p>
+          {stats?.fieldsMissing && (
+            <p className="mt-2 text-accent-ink">
+              This account has no Resolution tier or Resolution type ticket field, so no ticket can be read as billed.
+              Add the Usage CSV to audit billed resolutions.
+            </p>
+          )}
           <div
             onDragOver={(e) => {
               e.preventDefault();
@@ -327,6 +340,7 @@ function Notes({ api, warnings, stats }: { api: AppApi; warnings: string[]; stat
     if (stats.droppedNoDate > 0) dropped.push(`${int(stats.droppedNoDate)} without a readable date`);
     if (dropped.length > 0) lines.push(`Left out: ${dropped.join(", ")}.`);
     lines.push(`${int(stats.aiConversations)} AI-agent conversations audited.`);
+    if (stats.fieldsMissing) lines.push("Resolution tier and Resolution type fields were not found in this account.");
     lines.push(
       stats.replyOrderChecked > 0
         ? `Reply order checked on ${int(stats.replyOrderChecked)} tickets. The rest use the reply count only when "Count agent replies" is on.`

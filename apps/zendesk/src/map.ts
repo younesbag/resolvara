@@ -46,22 +46,30 @@ export function toConversations(
   const metrics = new Map<number, ZMetricSet>();
   for (const m of input.metricSets) if (typeof m.ticket_id === 'number') metrics.set(m.ticket_id, m);
 
-  // The AI-scoped export wins over the unscoped one for the same ticket.
+  // A ticket in both exports is AI-scoped; its fields come from whichever copy is newer, because
+  // the two exports run minutes (or, after a resume, hours) apart.
+  const aiIds = new Set(input.aiTickets.map((t) => t.id));
   const byId = new Map<number, { t: ZTicket; scoped: boolean }>();
-  for (const t of input.otherTickets) byId.set(t.id, { t, scoped: false });
-  for (const t of input.aiTickets) byId.set(t.id, { t, scoped: true });
+  const newer = (a: ZTicket, b: ZTicket) => (Date.parse(b.updated_at ?? '') || 0) > (Date.parse(a.updated_at ?? '') || 0);
+  for (const t of [...input.aiTickets, ...input.otherTickets]) {
+    const prev = byId.get(t.id);
+    if (!prev || newer(prev.t, t)) byId.set(t.id, { t, scoped: aiIds.has(t.id) });
+  }
 
   const billedSet = input.billedIds ? new Set(input.billedIds) : null;
   const order = input.replyOrder ?? {};
+  const pre = input.preDropped ?? 0;
   const stats: MapStats = {
-    ticketsRead: byId.size,
-    droppedBeforePeriod: 0,
+    ticketsRead: byId.size + pre,
+    droppedBeforePeriod: pre,
     droppedDeleted: 0,
     droppedNoDate: 0,
     aiConversations: 0,
     billedByTier: 0,
     billedByUsageCsv: billedSet ? 0 : null,
     usageCsvUnmatched: null,
+    aiNotInUsageCsv: billedSet ? 0 : null,
+    fieldsMissing: input.fields.tier === null && input.fields.type === null,
     replyOrderChecked: 0,
   };
   const aiInPeriod = new Set<number>();
@@ -98,6 +106,7 @@ export function toConversations(
       aiInPeriod.add(t.id);
       if (tierBilled) stats.billedByTier += 1;
       if (billedSet && billed) stats.billedByUsageCsv = (stats.billedByUsageCsv ?? 0) + 1;
+      if (billedSet && tierBilled && !billed) stats.aiNotInUsageCsv = (stats.aiNotInUsageCsv ?? 0) + 1;
     }
 
     // A checked comment order is a statement of the order; otherwise "replies" is a whole-ticket

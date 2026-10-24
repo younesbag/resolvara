@@ -15,6 +15,7 @@ import {
   type Preset,
 } from "@/engine";
 import { makeKeyHasher } from "@/engine/hash";
+import { withBilledBasis } from "./basis";
 import { toConversations } from "./map";
 import type { MapInput, MapStats } from "./types";
 import type { WorkerIn, WorkerOut, ZAuditOptions } from "./worker-protocol";
@@ -67,11 +68,12 @@ function runAudit(reqId: number, opts: ZAuditOptions, vendorName: string): void 
   const full: AuditOptions =
     source === "api" && lastInput ? { ...opts, exportEnd: new Date(lastInput.fetchedAt) } : { ...opts };
   fullReport = audit(convs, full, preset);
+  const text = disputeSummaryText(fullReport, full, vendorName);
   post({
     type: "audited",
     reqId,
     report: trimReport(fullReport),
-    summary: disputeSummaryText(fullReport, full, vendorName),
+    summary: source === "api" && lastInput ? withBilledBasis(text, lastInput) : text,
     stats: source === "api" ? stats : null,
   });
 }

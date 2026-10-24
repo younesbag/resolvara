@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { audit, parseFile, type AuditOptions, type AuditReport } from '@/engine';
 import { makeKeyHasher } from '@/engine/hash';
+import { withBilledBasis } from './basis';
 import { replyAfterAi } from './comments';
 import { findResolutionFields, toConversations } from './map';
 import type { MapInput, ZMetricSet, ZTicket } from './types';
@@ -250,8 +251,9 @@ describe('findResolutionFields', () => {
 describe('replyAfterAi', () => {
   const users = [
     { id: 1, role: 'end-user' }, // requester
-    { id: 2, role: 'end-user' }, // AI agent system user
+    { id: 2, role: 'end-user' }, // AI agent system user (its comments carry the marker)
     { id: 3, role: 'agent' },
+    { id: 5, role: 'end-user' }, // a CC on the ticket
   ];
   const c = (id: number, author: number, at: string, pub = true, rel?: string) => ({
     id,
@@ -261,21 +263,26 @@ describe('replyAfterAi', () => {
     via: rel ? { channel: 'native_messaging', source: { rel } } : null,
   });
 
-  it('true when a staff public reply follows the first AI comment', () => {
-    expect(replyAfterAi([c(1, 1, '2026-09-01T10:00:00Z'), c(2, 2, '2026-09-01T10:01:00Z'), c(3, 3, '2026-09-01T11:00:00Z')], users, 1)).toBe(true);
+  it('true when a staff public reply follows the first marked AI comment', () => {
+    expect(replyAfterAi([c(1, 1, '2026-09-01T10:00:00Z'), c(2, 2, '2026-09-01T10:01:00Z', true, 'ai_agent'), c(3, 3, '2026-09-01T11:00:00Z')], users)).toBe(true);
   });
   it('false when there is no staff public reply (private notes do not count)', () => {
-    expect(replyAfterAi([c(1, 1, '2026-09-01T10:00:00Z'), c(2, 3, '2026-09-01T11:00:00Z', false)], users, 1)).toBe(false);
+    expect(replyAfterAi([c(1, 1, '2026-09-01T10:00:00Z'), c(2, 3, '2026-09-01T11:00:00Z', false)], users)).toBe(false);
   });
   it('false when the staff reply came before the AI', () => {
-    expect(replyAfterAi([c(1, 3, '2026-09-01T09:00:00Z'), c(2, 2, '2026-09-01T10:00:00Z')], users, 1)).toBe(false);
+    expect(replyAfterAi([c(1, 3, '2026-09-01T09:00:00Z'), c(2, 2, '2026-09-01T10:00:00Z', true, 'ai_agent')], users)).toBe(false);
   });
   it('detects AI comments by via.source.rel even from a staff-role author', () => {
     const u = [{ id: 1, role: 'end-user' }, { id: 4, role: 'agent' }, { id: 3, role: 'agent' }];
-    expect(replyAfterAi([c(1, 4, '2026-09-01T10:00:00Z', true, 'ai_agent'), c(2, 3, '2026-09-01T10:05:00Z')], u, 1)).toBe(true);
+    expect(replyAfterAi([c(1, 4, '2026-09-01T10:00:00Z', true, 'ai_agent'), c(2, 3, '2026-09-01T10:05:00Z')], u)).toBe(true);
   });
-  it('null when the AI cannot be told apart (order unknown)', () => {
-    expect(replyAfterAi([c(1, 1, '2026-09-01T10:00:00Z'), c(2, 3, '2026-09-01T11:00:00Z')], users, 1)).toBeNull();
+  it('null when no AI comment is marked (order unknown)', () => {
+    expect(replyAfterAi([c(1, 1, '2026-09-01T10:00:00Z'), c(2, 3, '2026-09-01T11:00:00Z')], users)).toBeNull();
+  });
+  it('a later end-user CC is not taken for the AI (review finding 6)', () => {
+    expect(
+      replyAfterAi([c(1, 1, '2026-09-01T10:00:00Z'), c(2, 3, '2026-09-01T11:00:00Z'), c(3, 5, '2026-09-01T12:00:00Z')], users),
+    ).toBeNull();
   });
 });
 
@@ -286,5 +293,63 @@ describe('parseUsageCsv', () => {
   });
   it('reports no column when none matches', () => {
     expect(parseUsageCsv('a,b\n1,2\n')).toEqual({ ids: [], column: null, rows: 1 });
+  });
+});
+
+describe('review fixes in the mapper', () => {
+  const verified = { id: TIER_ID, value: 'zd_resolution_tier_core_resolution' };
+  const mk = (updated: string, fields: { id: number; value: unknown }[]): ZTicket => ({
+    id: 1,
+    created_at: '2026-09-01T10:00:00Z',
+    updated_at: updated,
+    requester_id: 9,
+    custom_fields: fields,
+  });
+  const base: MapInput = {
+    aiTickets: [],
+    otherTickets: [],
+    metricSets: [],
+    fields: FIELDS,
+    periodStart: '2026-08-01T00:00:00Z',
+    fetchedAt: FETCHED,
+  };
+
+  it('takes the newer copy of a ticket in both exports and keeps it AI-scoped (finding 10)', () => {
+    const stale = mk('2026-09-01T10:05:00Z', []);
+    const fresh = mk('2026-09-02T00:00:00Z', [verified]);
+    const [c] = toConversations({ ...base, aiTickets: [stale], otherTickets: [fresh] }, makeKeyHasher()).conversations;
+    expect(c).toMatchObject({ aiInvolved: true, vendorState: 'verified', billed: true });
+    const [d] = toConversations({ ...base, aiTickets: [fresh], otherTickets: [stale] }, makeKeyHasher()).conversations;
+    expect(d).toMatchObject({ vendorState: 'verified', billed: true });
+  });
+
+  it('adds fetcher-side drops to the counts, flags missing fields and Verified tickets absent from the CSV', () => {
+    const t = mk('2026-09-02T00:00:00Z', [verified]);
+    const res = toConversations({ ...base, aiTickets: [t], preDropped: 5, billedIds: [42] }, makeKeyHasher());
+    expect(res.stats).toMatchObject({ ticketsRead: 6, droppedBeforePeriod: 5, aiNotInUsageCsv: 1, fieldsMissing: false });
+    const none = toConversations({ ...base, aiTickets: [t], fields: { tier: null, type: null } }, makeKeyHasher());
+    expect(none.stats.fieldsMissing).toBe(true);
+  });
+});
+
+describe('withBilledBasis (finding 7)', () => {
+  const text = 'Billed as resolved: 3 of 4 judged (75%)\nReally resolved, of those billed: 2 of 3\n\nWe have attached the list of conversations.';
+  const inp = (billedIds: number[] | null): MapInput => ({
+    aiTickets: [],
+    otherTickets: [],
+    metricSets: [],
+    fields: FIELDS,
+    periodStart: '2026-08-01T00:00:00Z',
+    fetchedAt: FETCHED,
+    billedIds,
+  });
+  it('labels the tier proxy in the summary and the email', () => {
+    const out = withBilledBasis(text, inp(null));
+    expect(out).toMatch(/Billed basis: tickets whose Resolution tier is "Verified resolution"\. This is an estimate/);
+    expect(out.indexOf('Billed basis')).toBeLessThan(out.indexOf('Really resolved'));
+    expect(out).toMatch(/Resolution tier field on each ticket[^\n]*\n\nWe have attached/);
+  });
+  it('names the Usage CSV when it is the basis', () => {
+    expect(withBilledBasis(text, inp([1, 2]))).toMatch(/the 2 ticket ids in the Zendesk Usage > Resolutions export/);
   });
 });

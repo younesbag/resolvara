@@ -124,7 +124,9 @@ export function useApp(client: ZafClient | null) {
   const tokenRef = useRef<CancelToken | null>(null);
   const reqRef = useRef(0);
   const latestAudit = useRef(0);
-  const disputeWaiters = useRef(new Map<number, (csv: string) => void>());
+  const disputeWaiters = useRef(new Map<number, { resolve: (csv: string) => void; reject: (e: Error) => void }>());
+  // Bumped by every fresh start. Async work begun under an older run must not touch the new state.
+  const runGen = useRef(0);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const priceTouched = useRef(false);
   const vendorTouched = useRef(false);
@@ -163,10 +165,18 @@ export function useApp(client: ZafClient | null) {
           });
           break;
         case "dispute":
-          disputeWaiters.current.get(m.reqId)?.(m.csv);
+          disputeWaiters.current.get(m.reqId)?.resolve(m.csv);
           disputeWaiters.current.delete(m.reqId);
           break;
         case "error":
+          if (m.stage === "dispute" && m.reqId !== null) {
+            const w = disputeWaiters.current.get(m.reqId);
+            disputeWaiters.current.delete(m.reqId);
+            if (w) {
+              w.reject(new Error(m.message));
+              break;
+            }
+          }
           if (m.stage === "audit" || m.stage === "dispute") {
             patch({ refreshing: false, notice: m.message });
           } else if (stateRef.current.report) {
@@ -258,7 +268,11 @@ export function useApp(client: ZafClient | null) {
       priceTouched.current = false;
       vendorTouched.current = false;
       if (debounce.current) clearTimeout(debounce.current);
+      for (const w of disputeWaiters.current.values()) w.reject(new Error("Started over."));
       disputeWaiters.current.clear();
+      // An "audited" for a request sent before this point must not land on the fresh state.
+      latestAudit.current = ++reqRef.current;
+      runGen.current += 1;
       ensureWorker()?.post({ type: "reset" });
       setState({ ...INITIAL, periodDays: stateRef.current.periodDays, ...p });
     },
@@ -291,14 +305,22 @@ export function useApp(client: ZafClient | null) {
     if (!fetcher || !session) return;
     const token = new CancelToken();
     tokenRef.current = token;
+    const gen = runGen.current;
+    const live = () => gen === runGen.current;
     patch({ stage: "fetching", fetchError: null, wait: null });
     try {
       await fetcher.run(session, {
         token,
-        onProgress: (progress) => patch({ progress }),
-        onWait: (wait) => patch({ wait }),
+        onProgress: (progress) => live() && patch({ progress }),
+        onWait: (wait) => live() && patch({ wait }),
       });
-      if (token.cancelled) return;
+      if (!live()) return;
+      if (token.cancelled) {
+        // Cancel pressed while the last request was in flight: that page completed the fetch,
+        // so nothing is lost; stop here and let the user resume (which goes straight to the audit).
+        patch({ stage: "paused", wait: null, fetchError: null });
+        return;
+      }
       const s = stateRef.current;
       const reqId = ++reqRef.current;
       latestAudit.current = reqId;
@@ -316,6 +338,7 @@ export function useApp(client: ZafClient | null) {
         vendorName: s.vendorName,
       });
     } catch (e) {
+      if (!live()) return;
       if (e instanceof ZendeskError && e.kind === "cancelled") {
         patch({ stage: "paused", wait: null, fetchError: null });
         return;
@@ -323,7 +346,7 @@ export function useApp(client: ZafClient | null) {
       const hard = e instanceof ZendeskError && (e.kind === "forbidden" || e.kind === "unauthorized");
       patch({ stage: hard ? "error" : "paused", wait: null, fetchError: describe(e), error: hard ? describe(e) : null });
     } finally {
-      patch({ wait: null });
+      if (live()) patch({ wait: null });
     }
   }, [patch]);
 
@@ -351,6 +374,8 @@ export function useApp(client: ZafClient | null) {
       if (!fetcher || !session || stateRef.current.source !== "api") return;
       const token = new CancelToken();
       tokenRef.current = token;
+      const gen = runGen.current;
+      const live = () => gen === runGen.current;
       const before = Object.keys(session.replyOrder).length;
       patch({ replyCheck: { running: true, done: before, total: before, checked: before, skipped: 0 }, notice: null });
       let note: string | null = null;
@@ -358,7 +383,8 @@ export function useApp(client: ZafClient | null) {
         const r = await fetcher.checkReplyOrder(session, {
           cap,
           token,
-          onProgress: (p) =>
+          onProgress: (p) => {
+            if (!live() || token.cancelled) return;
             patch({
               replyCheck: {
                 running: true,
@@ -367,19 +393,22 @@ export function useApp(client: ZafClient | null) {
                 checked: Object.keys(session.replyOrder).length,
                 skipped: 0,
               },
-            }),
-          onWait: (wait) => patch({ wait }),
+            });
+          },
+          onWait: (wait) => live() && patch({ wait }),
         });
-        note =
-          r.skipped > 0
-            ? `Reply order checked for ${r.checked} of ${r.candidates} tickets. ${r.skipped} were skipped by the cap of ${cap}. Raise the cap and run again to cover them.`
-            : null;
+        const unknown = r.attempted - r.checked;
+        const parts = [`Comments read on ${r.attempted} of ${r.candidates} tickets; the order was established on ${r.checked}.`];
+        if (unknown > 0) parts.push(`${unknown} had no comment marked as the AI agent's, so their order stays unknown.`);
+        if (r.skipped > 0) parts.push(`${r.skipped} were left out by the cap of ${cap}. Raise the cap and run again to cover them.`);
+        note = unknown > 0 || r.skipped > 0 ? parts.join(" ") : null;
       } catch (e) {
         note =
           e instanceof ZendeskError && e.kind === "cancelled"
             ? "Reply-order check stopped. The answers collected so far were applied."
             : `Reply-order check stopped: ${describe(e)} The answers collected so far were applied.`;
       }
+      if (!live()) return;
       const answers = { ...session.replyOrder };
       const checked = Object.keys(answers).length;
       patch({
@@ -468,13 +497,17 @@ export function useApp(client: ZafClient | null) {
   }, [freshStart]);
 
   const downloadDispute = useCallback(async () => {
-    const csv = await new Promise<string>((resolve) => {
-      const reqId = ++reqRef.current;
-      disputeWaiters.current.set(reqId, resolve);
-      workerRef.current?.post({ type: "dispute", reqId });
-    });
-    downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), `resolvara-dispute-${stamp()}.csv`);
-  }, []);
+    try {
+      const csv = await new Promise<string>((resolve, reject) => {
+        const reqId = ++reqRef.current;
+        disputeWaiters.current.set(reqId, { resolve, reject });
+        workerRef.current?.post({ type: "dispute", reqId });
+      });
+      downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), `resolvara-dispute-${stamp()}.csv`);
+    } catch (e) {
+      patch({ notice: `The dispute CSV could not be made: ${describe(e)}` });
+    }
+  }, [patch]);
 
   const dismissNotice = useCallback(() => patch({ notice: null }), [patch]);
 

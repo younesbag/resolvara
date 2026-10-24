@@ -1,0 +1,8 @@
+{
+  "app": {
+    "name": "Resolvara P0 spike",
+    "short_description": "Feasibility checks for the Resolvara AI-agent resolution audit.",
+    "long_description": "Internal spike. Runs read-only checks (plus an optional, manually triggered test-ticket seeder) to learn what the Zendesk Apps Framework iframe and the Zendesk API allow. Nothing is sent outside the Zendesk account.",
+    "installation_instructions": "Private test app. Install only in a sandbox or trial account."
+  }
+}

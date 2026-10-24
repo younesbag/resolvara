@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resolvara P0 checks</title>
+  <link rel="stylesheet" href="app.css">
+  <script src="https://static.zdassets.com/zendesk_app_framework_sdk/2.0/zaf_sdk.min.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Resolvara P0 checks</h1>
+      <p class="lede">
+        Feasibility spike. Results contain only key names, counts, ids, roles and timestamps:
+        never ticket bodies, names or emails. Nothing leaves this page.
+      </p>
+      <div class="toolbar">
+        <button id="run-all" class="primary" type="button">Run all checks</button>
+        <button id="copy-json" type="button">Copy results JSON</button>
+        <span id="toolbar-note" class="note" role="status"></span>
+      </div>
+    </header>
+
+    <section id="checks" aria-label="Checks"></section>
+
+    <section aria-label="Results JSON">
+      <h2>Results JSON</h2>
+      <p class="note">If "Copy results JSON" is blocked by the iframe, select the text below and copy it manually.</p>
+      <textarea id="json-out" rows="14" readonly spellcheck="false"></textarea>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

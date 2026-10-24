@@ -10,7 +10,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/engine/**/*.test.ts', 'src/server/**/*.test.ts'],
+    include: ['src/engine/**/*.test.ts', 'src/server/**/*.test.ts', 'apps/zendesk/src/**/*.test.ts'],
     // No passWithNoTests: an empty test run must fail, so a missing engine can never pass CI.
   },
 });

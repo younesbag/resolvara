@@ -1,0 +1,8 @@
+{
+  "app": {
+    "name": "Resolvara",
+    "short_description": "Audit your AI agent's billed resolutions against a stricter test, inside Zendesk.",
+    "long_description": "Resolvara reads your own AI-agent tickets through the Zendesk API from your browser and checks each one that Zendesk counts as an automated resolution: did the customer come back, was the ticket reopened, did a human have to step in, was the rating negative. It shows how many billed resolutions fail that test, why, and a CSV of the flagged tickets you can take to Zendesk. The audit runs entirely in your browser. Nothing is stored, nothing is sent to Resolvara or any third party, and no data is combined across accounts. Reading the incremental ticket export requires an admin.",
+    "installation_instructions": "Install the app, then open Resolvara from the left navigation bar as an administrator, choose a period and press Run audit. The app needs no configuration and no API token."
+  }
+}

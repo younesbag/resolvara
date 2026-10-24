@@ -5,3 +5,6 @@
 - ui: the worker peeks the first ~768 KB itself (Papaparse / JSON) to get headers and sample rows, then calls engine detectPreset(headers, sample). For nested JSON the sample rows contain both the original nested object and flattened dotted keys (e.g. "ai_agent.resolution_state"), and headers are the flattened dotted keys.
 - ui: /benchmark reads from src/components/lib/benchmark.ts (loadBenchmark returns null until the Blob aggregation exists; replace its body, keep the BenchmarkRow shape). The contribute dialog POSTs the exact JSON it displays to /api/contribute and shows a clear message on 404/429/other errors.
 - ui: GITHUB_URL in src/components/lib/links.ts is a placeholder (https://github.com/younesbag/resolvara) until the repo exists; override with NEXT_PUBLIC_GITHUB_URL.
+- integration: vitest.config.ts now aliases `@` to `src` and also includes `src/server/**/*.test.ts` (contribution schema, rate limit, benchmark aggregation tests).
+- integration: new server code in `src/server/contribution.ts` (zod schema, in-memory rate limit, benchmark aggregation) and `src/app/api/contribute/route.ts`; `src/components/lib/benchmark.ts` body replaced by the Blob aggregation (BenchmarkRow shape unchanged).
+- integration: next.config.ts now sets the CSP and security headers on every route.

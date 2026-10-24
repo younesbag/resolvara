@@ -1,13 +1,18 @@
-// Server-side loader for the community benchmark.
-//
-// INTEGRATION POINT: the contribution store (Vercel Blob, see docs/SPEC.md "Contribution API")
-// is owned by the integration step. Until it exists, this returns null and /benchmark
-// shows the "collecting" state. Replace the body of loadBenchmark() with the real
-// aggregation and keep the BenchmarkRow shape: the page only renders these fields and
-// only shows rates when n >= BENCHMARK_MIN_N.
-import type { Preset } from "@/engine";
+// Server-side loader for the community benchmark: lists the private contribution
+// blobs, validates each one against the contribution schema, and aggregates per
+// preset. Rates are only returned for a preset once n >= BENCHMARK_MIN_N.
+// Without BLOB_READ_WRITE_TOKEN (or on any storage error) it returns null and
+// /benchmark shows the "collecting" state.
+import { get, list } from "@vercel/blob";
+import type { Contribution, Preset } from "@/engine";
+import {
+  BENCHMARK_MIN_N,
+  CONTRIBUTION_PREFIX,
+  aggregateContributions,
+  contributionSchema,
+} from "@/server/contribution";
 
-export const BENCHMARK_MIN_N = 30;
+export { BENCHMARK_MIN_N };
 
 export interface BenchmarkRow {
   preset: Preset;
@@ -17,6 +22,40 @@ export interface BenchmarkRow {
   strictIqr?: [number, number]; // 25th and 75th percentile, 0..1
 }
 
+const MAX_BLOBS = 5000;
+const CONCURRENCY = 20;
+
+async function readOne(pathname: string, token: string): Promise<Contribution | null> {
+  try {
+    const res = await get(pathname, { access: "private", token });
+    if (!res || res.statusCode !== 200) return null;
+    const text = await new Response(res.stream).text();
+    const parsed = contributionSchema.safeParse(JSON.parse(text));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function loadBenchmark(): Promise<BenchmarkRow[] | null> {
-  return null;
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) return null;
+  try {
+    const paths: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await list({ prefix: CONTRIBUTION_PREFIX, limit: 1000, cursor, token });
+      for (const b of page.blobs) paths.push(b.pathname);
+      cursor = page.hasMore ? page.cursor : undefined;
+    } while (cursor && paths.length < MAX_BLOBS);
+
+    const items: Contribution[] = [];
+    for (let i = 0; i < paths.length; i += CONCURRENCY) {
+      const batch = await Promise.all(paths.slice(i, i + CONCURRENCY).map((p) => readOne(p, token)));
+      for (const c of batch) if (c) items.push(c);
+    }
+    return aggregateContributions(items);
+  } catch {
+    return null;
+  }
 }

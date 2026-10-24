@@ -324,7 +324,9 @@ export function zendeskTier(tier: string, type: string, tags: string): { state: 
   const t = tier.toLowerCase();
   const ty = type.toLowerCase();
   const legacy = tags.toLowerCase().includes('ai_agent_automated_resolution');
-  if (/\bverified\b/.test(t)) return { state: 'verified', billed: true, ai: true };
+  // API values and ticket tags carry option values, not labels: "Verified resolution" = zd_resolution_tier_core_resolution.
+  if (/\bverified\b/.test(t) || t.includes('core_resolution')) return { state: 'verified', billed: true, ai: true };
+  if (t.includes('non_automated') || t.includes('non-automated')) return { state: 'not_ai', billed: false, ai: false };
   if (t.includes('contained')) return { state: 'contained', billed: false, ai: true };
   if (t.includes('assisted') || t.includes('escalat')) return { state: 'escalated', billed: false, ai: true };
   if (legacy) return { state: 'assumed', billed: true, ai: true };

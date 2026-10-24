@@ -125,6 +125,7 @@ interface Plan {
   billedMapped: boolean;
   aiMapped: boolean;
   scaleChoice: CsatScale | null; // chosen in the mapper
+  unseen: Set<FieldKey>; // JSON paths read blind: not present in the sampled records
 }
 
 const valueSet = (raw: string | null | undefined): Set<string> | null => {
@@ -162,9 +163,11 @@ function buildPlan(preset: Preset, mapping: ColumnMapping | undefined, src: Sour
 
   // 2. Preset candidates (exact names first, then fuzzy for generic), then generic synonyms for
   //    the fields a Gorgias export does not name.
+  const unseen = new Set<FieldKey>();
   const resolveField = (field: FieldKey, list: Candidates, fuzzy: boolean) => {
     if (cols[field] || explicit.has(field)) return;
     const cands = list[field] ?? [];
+    if (!src.csv && resolveJsonField(src, field, cands, taken, cols, unseen)) return;
     for (const pass of fuzzy ? [false, true] : [false]) {
       for (const cand of cands) {
         const r = resolveCandidate(src, cand, pass, taken);
@@ -191,7 +194,44 @@ function buildPlan(preset: Preset, mapping: ColumnMapping | undefined, src: Sour
     billedMapped,
     aiMapped,
     scaleChoice: parseScale(mapping?.csatScale),
+    unseen,
   };
+}
+
+const isPath = (cand: string) => cand.includes('.') || /^\d+$/.test(cand);
+const usable = (v: unknown) => v !== undefined && v !== null && typeof v !== 'object';
+
+/**
+ * JSON only. The sample is just the first records of the file, so a field can be missing from
+ * all of them (an export that starts with conversations Fin never touched has no `ai_agent`
+ * object in its first rows). Order: a dotted path seen in the sample, or a key that holds a
+ * plain value in the sample; else the preset's own dotted path, read blind (a missing path
+ * reads as missing); else the caller's usual matching.
+ */
+function resolveJsonField(
+  src: Source,
+  field: FieldKey,
+  cands: string[],
+  taken: Set<string>,
+  cols: Cols,
+  unseen: Set<FieldKey>,
+): boolean {
+  for (const cand of cands) {
+    const r = resolveCandidate(src, cand, false, taken);
+    if (r && (isPath(cand) || src.sample.some((rec) => usable(r.get(rec))))) {
+      cols[field] = r.get;
+      taken.add(r.name);
+      return true;
+    }
+  }
+  const blind = cands.find((c) => isPath(c) && !taken.has(c));
+  if (blind) {
+    cols[field] = makePathGetter(blind);
+    taken.add(blind);
+    unseen.add(field);
+    return true;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -265,7 +305,8 @@ function intercomDraft(g: (f: FieldKey) => unknown, plan: Plan): Draft {
   const rawState = g('state');
   const st = intercomState(rawState);
   const participated = plan.cols.ai ? toBool(g('ai')) : null;
-  let ai = participated !== null ? participated : plan.cols.state ? str(rawState) !== '' : true;
+  const stateSeen = Boolean(plan.cols.state) && !plan.unseen.has('state');
+  let ai = participated !== null ? participated : stateSeen ? str(rawState) !== '' : true;
   let billed = st.billed;
   if (plan.aiMapped) ai = matches(g('ai'), plan.aiValues);
   if (plan.billedMapped) billed = matches(g('billed'), plan.billedValues);
@@ -294,7 +335,7 @@ function intercomDraft(g: (f: FieldKey) => unknown, plan: Plan): Draft {
     billed,
     state: ai ? st.state : 'not_ai',
     human,
-    humanUnordered: unordered,
+    humanUnordered: unordered && ai, // only AI conversations use the signal
     reopens: toCount(g('reopens')),
     csat: c.csat,
     csatNeedsScale: false,
@@ -577,7 +618,7 @@ export async function parseFile(
     headerWarnings = [...plan.warnings];
     if (!plan.cols.id) headerWarnings.push('No id column was found; every row will be skipped.');
     if (!plan.cols.created) headerWarnings.push('No creation-date column was found; every row will be skipped.');
-    if (preset === 'intercom' && !plan.cols.ai && !plan.cols.state) {
+    if (preset === 'intercom' && !plan.cols.ai && (!plan.cols.state || plan.unseen.has('state'))) {
       headerWarnings.push('No AI-participation or resolution-state field was found; every conversation is treated as AI-handled.');
     }
     if (preset === 'ada') {

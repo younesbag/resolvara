@@ -300,7 +300,8 @@ export function parseScale(v: string | null | undefined): CsatScale | null {
 // ---------------------------------------------------------------------------
 
 export function intercomState(raw: unknown): { state: VendorState; billed: boolean } {
-  switch (str(raw).toLowerCase()) {
+  // API names are snake_case; CSV datasets may spell them as display names ("Routed to team").
+  switch (str(raw).toLowerCase().replace(/[\s-]+/g, '_')) {
     case 'assumed_resolution':
       return { state: 'assumed', billed: true };
     case 'confirmed_resolution':

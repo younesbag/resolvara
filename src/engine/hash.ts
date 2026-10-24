@@ -80,7 +80,8 @@ export function makeKeyHasher(): (raw: unknown) => string | null {
   const s = salt();
   return (raw) => {
     if (raw === null || raw === undefined) return null;
-    const norm = String(raw).trim().toLowerCase();
+    // An object-valued id would otherwise become "[object Object]" and merge every customer.
+    const norm = (typeof raw === 'object' ? JSON.stringify(raw) : String(raw)).trim().toLowerCase();
     if (EMPTY.has(norm)) return null;
     let h = cache.get(norm);
     if (h === undefined) {

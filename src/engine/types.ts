@@ -110,6 +110,9 @@ export interface AuditReport {
   unverifiable: number;
   strictRate: number; // (strictPass+confirmedPass) / judged
   phantomShareOfBilled: number; // phantom / billedJudged
+  /** Billed conversations that pass the Standard: billedJudged - phantom. Compares billed with billed. */
+  billedStrictPass: number;
+  billedStrictRate: number; // billedStrictPass / billedJudged
   dollarsAtRisk: number; // phantom * pricePerResolution
   /** Reason counts over phantom conversations only. A conversation can carry several reasons. */
   byReason: Record<Reason, number>;

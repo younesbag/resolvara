@@ -77,6 +77,11 @@ function checkInvariants(r: AuditReport, convs: Conversation[], opts: AuditOptio
   expect(r.billedRate).toBeCloseTo(r.judged ? r.billedJudged / r.judged : 0, 12);
   expect(r.strictRate).toBeCloseTo(r.judged ? (r.strictPass + r.confirmedPass) / r.judged : 0, 12);
   expect(r.phantomShareOfBilled).toBeCloseTo(r.billedJudged ? r.phantom / r.billedJudged : 0, 12);
+  // Billed compared with billed: the billed conversations that pass, over the billed ones judged.
+  unit(r.billedStrictRate);
+  expect(r.billedStrictPass).toBe(r.billedJudged - r.phantom);
+  expect(r.billedStrictRate).toBeCloseTo(r.billedJudged ? (r.billedJudged - r.phantom) / r.billedJudged : 0, 12);
+  if (r.billedJudged) expect(r.billedStrictRate + r.phantomShareOfBilled).toBeCloseTo(1, 12);
   expect(r.dollarsAtRisk).toBeCloseTo(r.phantom * Math.max(0, opts.pricePerResolution), 9);
   // One result per AI conversation, and the verdict counts match the totals.
   expect(r.results.length).toBe(r.aiConversations);
@@ -314,7 +319,12 @@ describe('end to end: sampleDataset -> parseFile -> audit', () => {
     const report = audit(parsed.conversations, OPTS, 'intercom');
     const text = disputeSummaryText(report, OPTS, 'Intercom');
     expect(text).toContain(`Billed as resolved: ${report.billedJudged} of ${report.judged} judged`);
-    expect(text).toContain(`Strictly resolved: ${report.strictPass + report.confirmedPass} of ${report.judged} judged`);
+    expect(text).toContain(
+      `Really resolved, of those billed: ${report.billedStrictPass} of ${report.billedJudged} billed resolutions pass the Strict Resolution Standard`,
+    );
+    expect(text).toContain(
+      `Overall strict rate (all judged AI conversations, billed or not): ${report.strictPass + report.confirmedPass} of ${report.judged}`,
+    );
     expect(text).toContain(`${report.phantom} x $0.99 = $${report.dollarsAtRisk.toFixed(2)}`);
     expect(text).toContain(`${report.phantom} of ${report.billedJudged} billed resolutions`);
   });

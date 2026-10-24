@@ -88,7 +88,8 @@ export function disputeSummaryText(report: AuditReport, opts: AuditOptions | und
     `Judged (old enough, and with a customer key or a fail signal): ${report.judged}`,
     `Left out: ${report.pending} pending (newest ${w} days), ${report.unverifiable} unverifiable`,
     `Billed as resolved: ${report.billedJudged} of ${report.judged} judged (${pct(report.billedRate)})`,
-    `Strictly resolved: ${report.strictPass + report.confirmedPass} of ${report.judged} judged (${pct(report.strictRate)})`,
+    `Really resolved, of those billed: ${report.billedStrictPass} of ${report.billedJudged} billed resolutions pass the Strict Resolution Standard (${pct(report.billedStrictRate)})`,
+    `Overall strict rate (all judged AI conversations, billed or not): ${report.strictPass + report.confirmedPass} of ${report.judged} (${pct(report.strictRate)})`,
     `Phantom resolutions (billed but not strictly resolved): ${report.phantom}, ${pct(report.phantomShareOfBilled)} of the billed ones that were judged`,
     price
       ? `Amount in question: ${report.phantom} x ${price} = ${money(report.dollarsAtRisk)}`
@@ -101,7 +102,7 @@ export function disputeSummaryText(report: AuditReport, opts: AuditOptions | und
     ...SENSITIVITY_WINDOWS.map((d) => {
       const s = report.sensitivity.find((x) => x.windowDays === d);
       const unit = d === 1 ? 'day' : 'days';
-      return s ? `  - ${d} ${unit}: ${s.phantom} phantom, strict rate ${pct(s.strictRate)}` : `  - ${d} ${unit}: n/a`;
+      return s ? `  - ${d} ${unit}: ${s.phantom} phantom, overall strict rate ${pct(s.strictRate)}` : `  - ${d} ${unit}: n/a`;
     }),
     ``,
     `Read this as evidence, not as a finding. Repeat contact can be a different issue, and a conversation can be billed correctly under the contract and still fail the Standard.`,

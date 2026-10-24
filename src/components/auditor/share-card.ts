@@ -56,7 +56,8 @@ export async function renderShareCard(opts: {
   c.fillText(`${vendorName}: billed vs strictly resolved`, 80, 168);
 
   // Lead with the phantom share of billed: it is the one number that needs no comparison of
-  // rates. The two rates share one population (judged AI conversations), so they can sit together.
+  // rates. The side numbers compare billed with billed: the vendor's rate over judged conversations,
+  // and the share of those billed resolutions that really pass the Standard.
   c.fillStyle = MUTED;
   c.font = `500 28px ${family}`;
   c.fillText("Billed resolutions that fail the strict test", 80, 262);
@@ -66,14 +67,14 @@ export async function renderShareCard(opts: {
 
   const side = (y: number, label: string, value: string, color: string) => {
     c.fillStyle = MUTED;
-    c.font = `500 24px ${family}`;
+    c.font = `500 21px ${family}`;
     c.fillText(label, 760, y);
     c.fillStyle = color;
     c.font = `600 72px ${monoFamily}`;
     c.fillText(value, 760, y + 76);
   };
   side(262, "Billed as resolved", pct(report.billedRate, 0), PAPER);
-  side(388, "Strictly resolved", pct(report.strictRate, 0), PASS);
+  side(388, "Really resolved, of those billed", pct(report.billedStrictRate, 0), PASS);
 
   c.fillStyle = MUTED;
   c.font = `500 22px ${family}`;

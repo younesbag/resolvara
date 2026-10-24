@@ -348,6 +348,8 @@ export function audit(convs: Conversation[], opts: AuditOptions, preset: Preset)
     unverifiable: p.unverifiable,
     strictRate: rate(p.strictPass + p.confirmedPass, judged),
     phantomShareOfBilled: rate(p.phantom, p.billedJudged),
+    billedStrictPass: p.billedJudged - p.phantom,
+    billedStrictRate: rate(p.billedJudged - p.phantom, p.billedJudged),
     dollarsAtRisk: p.phantom * price,
     byReason: main.byReason,
     weekly,

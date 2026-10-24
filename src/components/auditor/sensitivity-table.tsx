@@ -29,7 +29,7 @@ export function SensitivityTable({
                 Phantom
               </th>
               <th scope="col" className="py-2 text-right font-medium">
-                Strict rate
+                Overall strict rate
               </th>
             </tr>
           </thead>

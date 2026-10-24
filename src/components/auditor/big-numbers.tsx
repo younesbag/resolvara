@@ -38,10 +38,10 @@ export function BigNumbers({ report, opts }: { report: AuditReport; opts: AuditO
           note={`${int(report.billedJudged)} of ${int(report.judged)} judged AI conversations`}
         />
         <Stat
-          label="Strictly resolved"
-          value={pct(report.strictRate)}
+          label="Really resolved, of those billed"
+          value={pct(report.billedStrictRate)}
           tone="pass"
-          note={`${int(report.strictPass + report.confirmedPass)} of the same ${int(report.judged)} pass the Standard, ${int(report.confirmedPass)} with explicit confirmation`}
+          note={`${int(report.billedStrictPass)} of ${int(report.billedJudged)} billed resolutions pass the Strict Resolution Standard`}
         />
       </div>
 
@@ -65,6 +65,14 @@ export function BigNumbers({ report, opts }: { report: AuditReport; opts: AuditO
           </dd>
           <dd className="mt-1 text-sm text-ink-3">
             {priceMissing ? "Set the price per resolution below" : `At ${money(opts.pricePerResolution)} per resolution`}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-sm font-medium text-ink-2">Overall strict rate</dt>
+          <dd className="num-lg mt-1 text-3xl font-semibold">{pct(report.strictRate)}</dd>
+          <dd className="mt-1 text-sm text-ink-3">
+            {int(report.strictPass + report.confirmedPass)} of all {int(report.judged)} judged AI conversations pass the
+            Standard ({int(report.confirmedPass)} with explicit confirmation), billed or not
           </dd>
         </div>
         <div>

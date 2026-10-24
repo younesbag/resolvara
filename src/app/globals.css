@@ -1,26 +1,429 @@
 @import "tailwindcss";
 
+/*
+  Resolvara design tokens.
+  Language: audit ledger. Cool paper, ink text, one signal accent (vermilion) that
+  marks phantom resolutions, and one semantic green for strict passes.
+  Shape rule: controls and panels use --radius (6px). Verdict stamps use 2px.
+  Theme: follows the system, overridable via [data-theme] on <html>.
+*/
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --bg: #f5f6f7;
+  --surface: #ffffff;
+  --surface-2: #eceef0;
+  --line: #d6dadf;
+  --line-strong: #b7bec6;
+  --ink: #0f1317;
+  --ink-2: #444c55;
+  --ink-3: #5e6872;
+  --accent: #c43d1c;
+  --accent-soft: #fbe8e2;
+  --accent-ink: #8f2a11;
+  --pass: #14704c;
+  --pass-soft: #def0e7;
+  --on-ink: #f5f6f7;
+  --radius: 6px;
+  --stamp-radius: 2px;
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-theme="light"]) {
+    --bg: #0c0f12;
+    --surface: #13171b;
+    --surface-2: #1a1f24;
+    --line: #272d34;
+    --line-strong: #3a424b;
+    --ink: #eceff1;
+    --ink-2: #aab2ba;
+    --ink-3: #8c96a0;
+    --accent: #ff7d5c;
+    --accent-soft: #35170f;
+    --accent-ink: #ffb09b;
+    --pass: #52c690;
+    --pass-soft: #11301f;
+    --on-ink: #0c0f12;
+    color-scheme: dark;
   }
 }
 
+:root[data-theme="dark"] {
+  --bg: #0c0f12;
+  --surface: #13171b;
+  --surface-2: #1a1f24;
+  --line: #272d34;
+  --line-strong: #3a424b;
+  --ink: #eceff1;
+  --ink-2: #aab2ba;
+  --ink-3: #8c96a0;
+  --accent: #ff7d5c;
+  --accent-soft: #35170f;
+  --accent-ink: #ffb09b;
+  --pass: #52c690;
+  --pass-soft: #11301f;
+  --on-ink: #0c0f12;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+  --color-pass: var(--pass);
+  --color-pass-soft: var(--pass-soft);
+  --color-on-ink: var(--on-ink);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* Large figures: the sans face with tabular numerals reads better than mono at display size. */
+.num-lg {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.045em;
+}
+
+/* Focus: one visible ring for everything interactive. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+@layer components {
+  /* ---------- Buttons ---------- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0 1.1rem;
+    border-radius: var(--radius);
+    border: 1px solid transparent;
+    font-size: 0.9375rem;
+    font-weight: 550;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    text-decoration: none;
+    transition:
+      background-color 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .btn:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .btn-primary {
+    background: var(--ink);
+    color: var(--bg);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--ink-2);
+  }
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--ink);
+    border-color: var(--line-strong);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    border-color: var(--ink);
+  }
+  .btn-ghost {
+    background: transparent;
+    color: var(--ink);
+    border-color: transparent;
+    padding: 0 0.7rem;
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--surface-2);
+  }
+  .btn-sm {
+    min-height: 2.25rem;
+    padding: 0 0.8rem;
+    font-size: 0.875rem;
+  }
+
+  /* ---------- Form fields ---------- */
+  .field-label {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 550;
+    color: var(--ink);
+    margin-bottom: 0.4rem;
+  }
+  .field-help {
+    margin-top: 0.4rem;
+    font-size: 0.8125rem;
+    color: var(--ink-3);
+    line-height: 1.45;
+  }
+  .field {
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0 0.75rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 0.9375rem;
+  }
+  .field:hover {
+    border-color: var(--ink-3);
+  }
+  .field::placeholder {
+    color: var(--ink-3);
+  }
+  select.field {
+    padding-right: 2rem;
+  }
+
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--ink);
+    height: 2rem;
+  }
+
+  /* ---------- Verdict stamps ---------- */
+  .stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.12rem 0.45rem;
+    border: 1.5px solid currentColor;
+    border-radius: var(--stamp-radius);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+  .stamp-pass {
+    color: var(--pass);
+  }
+  .stamp-phantom {
+    color: var(--accent);
+  }
+  .stamp-muted {
+    color: var(--ink-3);
+  }
+
+  /* ---------- Prose (standard, vendor guides, policy pages) ---------- */
+  .prose-doc {
+    max-width: 68ch;
+    color: var(--ink-2);
+  }
+  .prose-doc > * + * {
+    margin-top: 1rem;
+  }
+  .prose-doc h1 {
+    font-size: clamp(1.9rem, 4vw, 2.75rem);
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    font-weight: 650;
+    color: var(--ink);
+  }
+  .prose-doc h2 {
+    margin-top: 2.75rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--line);
+    font-size: 1.4rem;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    font-weight: 620;
+    color: var(--ink);
+    scroll-margin-top: 5.5rem;
+  }
+  .prose-doc h3 {
+    margin-top: 1.75rem;
+    font-size: 1.05rem;
+    font-weight: 620;
+    color: var(--ink);
+    scroll-margin-top: 5.5rem;
+  }
+  .prose-doc p,
+  .prose-doc li {
+    line-height: 1.7;
+  }
+  .prose-doc strong {
+    color: var(--ink);
+    font-weight: 620;
+  }
+  .prose-doc ul,
+  .prose-doc ol {
+    padding-left: 1.3rem;
+  }
+  .prose-doc ul {
+    list-style: disc;
+  }
+  .prose-doc ol {
+    list-style: decimal;
+  }
+  .prose-doc li + li {
+    margin-top: 0.4rem;
+  }
+  .prose-doc li::marker {
+    color: var(--ink-3);
+  }
+  .prose-doc a {
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-color: var(--line-strong);
+    text-underline-offset: 3px;
+    overflow-wrap: anywhere;
+  }
+  .prose-doc a:hover {
+    text-decoration-color: var(--ink);
+  }
+  .prose-doc code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    background: var(--surface-2);
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .prose-doc td code {
+    white-space: nowrap;
+  }
+  .prose-doc pre {
+    overflow-x: auto;
+    padding: 1rem;
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    font-size: 0.85rem;
+  }
+  .prose-doc pre code {
+    padding: 0;
+    background: transparent;
+  }
+  .prose-doc blockquote {
+    padding: 0.25rem 0 0.25rem 1rem;
+    border-left: 3px solid var(--line-strong);
+    color: var(--ink);
+  }
+  .prose-doc hr {
+    border: 0;
+    border-top: 1px solid var(--line);
+    margin: 2rem 0;
+  }
+  .prose-doc .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+  .prose-doc table {
+    width: 100%;
+    min-width: 34rem;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  .prose-doc th {
+    text-align: left;
+    padding: 0.6rem 0.8rem;
+    background: var(--surface-2);
+    color: var(--ink);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .prose-doc td {
+    padding: 0.6rem 0.8rem;
+    vertical-align: top;
+    border-top: 1px solid var(--line);
+  }
+}
+
+/* ---------- Motion ---------- */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.rise-2 {
+  animation-delay: 0.08s;
+}
+.rise-3 {
+  animation-delay: 0.16s;
+}
+
+@keyframes indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .rise,
+  .rise-2,
+  .rise-3 {
+    animation: none;
+  }
+  .btn,
+  .bar-grow {
+    transition: none !important;
+  }
+}
+
+dialog {
+  color: var(--ink);
+}
+dialog::backdrop {
+  background: rgb(8 10 12 / 0.55);
 }

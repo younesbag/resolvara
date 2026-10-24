@@ -1,0 +1,78 @@
+import type { AuditOptions, AuditReport } from "@/engine";
+import { int, money, pct } from "./format";
+
+function Stat({
+  label,
+  value,
+  note,
+  tone,
+}: {
+  label: string;
+  value: string;
+  note?: string;
+  tone?: "accent" | "pass";
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="text-sm font-medium text-ink-2">{label}</p>
+      <p
+        className={`num-lg mt-1 text-5xl font-semibold leading-none sm:text-6xl ${
+          tone === "accent" ? "text-accent" : tone === "pass" ? "text-pass" : "text-ink"
+        }`}
+      >
+        {value}
+      </p>
+      {note && <p className="mt-2 text-sm text-ink-3">{note}</p>}
+    </div>
+  );
+}
+
+export function BigNumbers({ report, opts }: { report: AuditReport; opts: AuditOptions }) {
+  const priceMissing = !(opts.pricePerResolution > 0);
+  return (
+    <div className="rise">
+      <div className="grid gap-8 sm:grid-cols-2">
+        <Stat
+          label="Billed as resolved by the vendor"
+          value={pct(report.billedRate)}
+          note={`${int(report.billed)} of ${int(report.aiConversations)} AI conversations`}
+        />
+        <Stat
+          label="Strictly resolved"
+          value={pct(report.strictRate)}
+          tone="pass"
+          note={`${int(report.strictPass + report.confirmedPass)} pass the Standard, ${int(report.confirmedPass)} with explicit confirmation`}
+        />
+      </div>
+
+      <dl className="mt-8 grid grid-cols-2 gap-x-6 gap-y-6 border-t border-line pt-6 lg:grid-cols-4">
+        <div>
+          <dt className="text-sm font-medium text-ink-2">Phantom resolutions</dt>
+          <dd className="num-lg mt-1 text-3xl font-semibold text-accent">{int(report.phantom)}</dd>
+          <dd className="mt-1 text-sm text-ink-3">Billed but not strictly resolved</dd>
+        </div>
+        <div>
+          <dt className="text-sm font-medium text-ink-2">Share of billed</dt>
+          <dd className="num-lg mt-1 text-3xl font-semibold">{pct(report.phantomShareOfBilled)}</dd>
+          <dd className="mt-1 text-sm text-ink-3">Pending and unverifiable left out</dd>
+        </div>
+        <div>
+          <dt className="text-sm font-medium text-ink-2">Dollars at risk</dt>
+          <dd className="num-lg mt-1 text-3xl font-semibold">
+            {priceMissing ? "Enter a price" : money(report.dollarsAtRisk)}
+          </dd>
+          <dd className="mt-1 text-sm text-ink-3">
+            {priceMissing ? "Set the price per resolution below" : `At ${money(opts.pricePerResolution)} per resolution`}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-sm font-medium text-ink-2">Not judged yet</dt>
+          <dd className="num-lg mt-1 text-3xl font-semibold">{int(report.pending + report.unverifiable)}</dd>
+          <dd className="mt-1 text-sm text-ink-3">
+            {int(report.pending)} pending, {int(report.unverifiable)} unverifiable
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+}

@@ -9,6 +9,7 @@ import type {
 } from "@/engine";
 
 export type WorkerInput =
+  | { type: "reset" } // forget the file, drop queued work and any parse in progress
   | { type: "peek"; input: File | string; label: string }
   | { type: "sample"; preset: Preset }
   | { type: "parse"; preset: Preset; mapping?: ColumnMapping }

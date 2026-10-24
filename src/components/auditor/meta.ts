@@ -1,4 +1,4 @@
-import type { Preset, Reason, Verdict } from "@/engine";
+import type { ContributionVendor, Preset, Reason, Verdict } from "@/engine";
 
 export const PRESET_OPTIONS: { value: Preset; label: string }[] = [
   { value: "intercom", label: "Intercom Fin" },
@@ -62,6 +62,7 @@ export const VERDICT_LABEL: Record<Verdict, string> = {
   strict_pass: "Strict",
   confirmed_pass: "Confirmed",
   phantom: "Phantom",
+  fail_unbilled: "Not strict, not billed",
   pending_window: "Pending",
   unverifiable: "Unverifiable",
 };
@@ -75,7 +76,35 @@ export interface MapperField {
   required?: boolean;
   valueKey?: string; // second input: the value in the column that means yes
   valueLabel?: string;
+  scaleKey?: string; // second input: the rating scale
 }
+
+// Rating scales the mapper offers (engine CsatScale). Empty = let the engine guess from the highest score.
+export const CSAT_SCALE_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "Guess from the highest score" },
+  { value: "1-5", label: "1 to 5" },
+  { value: "1-10", label: "1 to 10" },
+  { value: "0-100", label: "0 to 100" },
+  { value: "0-1", label: "0 to 1" },
+];
+
+// Labels for the vendor list a contribution can be filed under (slugs from content/vendors.json).
+export const CONTRIBUTION_VENDOR_LABEL: Record<ContributionVendor, string> = {
+  intercom: "Intercom Fin",
+  zendesk: "Zendesk AI agents",
+  ada: "Ada",
+  gorgias: "Gorgias AI Agent",
+  hubspot: "HubSpot Customer Agent",
+  front: "Front Autopilot",
+  "help-scout": "Help Scout AI Answers",
+  "salesforce-agentforce": "Salesforce Agentforce",
+  freshworks: "Freshworks Freddy AI Agent",
+  tidio: "Tidio Lyro",
+  decagon: "Decagon",
+  sierra: "Sierra",
+  kustomer: "Kustomer",
+  other: "Other or not listed",
+};
 
 export const MAPPER_FIELDS: MapperField[] = [
   { key: "id", label: "Conversation or ticket ID", help: "A unique ID per row.", required: true },
@@ -111,7 +140,12 @@ export const MAPPER_FIELDS: MapperField[] = [
     help: "A yes/no column, or a count above zero.",
   },
   { key: "reopenCount", label: "Reopen count", help: "Number of times the conversation was reopened." },
-  { key: "csat", label: "CSAT or rating", help: "Any scale. It is normalised to 0..1." },
+  {
+    key: "csat",
+    label: "CSAT or rating",
+    help: "Choose the scale below. It is turned into 0 to 1 using the scale, never the lowest and highest score in your file.",
+    scaleKey: "csatScale",
+  },
   { key: "closedAt", label: "Closed at", help: "Optional." },
   { key: "channel", label: "Channel", help: "Optional." },
   {

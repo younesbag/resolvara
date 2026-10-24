@@ -87,13 +87,17 @@ export async function POST(req: Request) {
     );
   }
 
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const pathname = `${CONTRIBUTION_PREFIX}${stamp}-${randomBytes(6).toString("hex")}.json`;
+  // The name is the UTC day plus a hash of the payload, so sending the same numbers again on the
+  // same day rewrites the same object instead of adding a second one to the benchmark count.
+  const body = JSON.stringify(parsed.data);
+  const day = new Date().toISOString().slice(0, 10);
+  const pathname = `${CONTRIBUTION_PREFIX}${day}-${createHash("sha256").update(body).digest("hex").slice(0, 24)}.json`;
   try {
-    await put(pathname, JSON.stringify(parsed.data), {
+    await put(pathname, body, {
       access: "private",
       contentType: "application/json",
       addRandomSuffix: false,
+      allowOverwrite: true,
       token,
     });
   } catch {

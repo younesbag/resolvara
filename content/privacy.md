@@ -9,15 +9,15 @@ The audit runs in your browser. Your file is not uploaded. Resolvara has no acco
 ## What runs where
 
 - **Your file.** It is read and parsed in your browser, inside a Web Worker. It is not sent to a server and it is not stored: closing or reloading the page discards it.
-- **Customer identifiers.** Ids and emails in your file are hashed in memory with a per-session random salt before they are compared, and are discarded with the page. Conversation text, if your file has any, is used only in memory for the optional same-topic filter.
-- **Network requests.** The page makes no request while it analyses a file. You can confirm this: open your browser's developer tools, go to the Network tab, run an audit, and check that no request is sent. The Content Security Policy also restricts connections to this site and Vercel's performance endpoint.
+- **Customer identifiers.** Ids and emails in your file are replaced by a salted SHA-256 digest, with a random salt made for each session, before any rule runs. Only the digests are compared, and they are discarded with the page. Conversation text, if your file has any, is used only in memory for the optional same-topic filter.
+- **Network requests.** The page makes no request while it analyses a file. Everything it needs, including the worker that does the analysis, is fetched when the page loads, so the page keeps working offline after that. You can confirm this: open your browser's developer tools, go to the Network tab, run an audit, and check that no request is sent. The Content Security Policy also restricts connections to this site and Vercel's performance endpoint.
 - **Downloads.** The dispute CSV and the share card are generated in your browser and saved to your device. The share card contains only rates, the vendor name and the Standard version.
 
 ## The optional contribution
 
-If you click "Contribute anonymously", the page shows you the exact JSON before it sends it. It contains: the Standard version, the preset, the vendor, the period length in days, a size bucket for the number of AI conversations (for example 1k-10k), the billed rate, the strict rate, the phantom share of billed, the window, and the share of each fail reason. It contains no conversation ids, no customer data, no text and no timestamps.
+If you click "Contribute anonymously", the page shows you the exact JSON before it sends it. It contains: the Standard version, the preset, the vendor (picked from a fixed list, never typed), the period length in days, a size bucket for the number of AI conversations (for example 1k-10k), the billed rate, the strict rate, the phantom share of billed, the window, and the share of each fail reason. It contains no conversation ids, no customer data, no text and no timestamps.
 
-On the server, the request is validated, extra fields are rejected, and one JSON object is stored. A hash of your IP address is used only for a short in-memory rate limit (best effort, five per hour) and is not stored with the contribution. Contributions are used for the benchmark page, which shows nothing for a vendor until at least 30 contributions exist.
+On the server, the request is validated, extra fields are rejected, and one JSON object is stored. A hash of your IP address is used only for a short in-memory rate limit (best effort, five per hour) and is not stored with the contribution. Sending the same numbers twice on one day stores them once. Sample data cannot be contributed. Contributions are used for the benchmark page, which shows nothing for a vendor until at least 30 contributions exist, and which compares only contributions made with the default 7-day window.
 
 ## Analytics
 

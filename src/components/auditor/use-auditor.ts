@@ -33,6 +33,7 @@ export interface AuditorState {
   summary: string;
   payload: Contribution | null;
   refreshing: boolean;
+  isSample: boolean; // sample data never goes to the community benchmark
   error: string | null;
   notice: string | null;
 }
@@ -63,6 +64,7 @@ const INITIAL: AuditorState = {
   summary: "",
   payload: null,
   refreshing: false,
+  isSample: false,
   error: null,
   notice: null,
 };
@@ -142,6 +144,7 @@ export function useAuditor() {
             headers: m.headers,
             detected: m.preset,
             confidence: m.confidence,
+            isSample: m.isSample,
           });
           const confident = m.isSample || (AUTO_OK.has(m.preset) && m.confidence >= 0.6);
           if (confident) startParse(m.preset);
@@ -191,6 +194,9 @@ export function useAuditor() {
     [patch, requestAudit, startParse],
   );
 
+  // One worker for the whole visit. It is created on mount, so its code is fetched when the page
+  // loads and not when a file is dropped: an audit itself makes no network request, and the page
+  // keeps working offline once loaded. Starting a new file resets the worker with a message.
   const ensureWorker = useCallback((): Worker => {
     if (!workerRef.current) {
       const w = new Worker(new URL("../../worker/audit.worker.ts", import.meta.url), {
@@ -215,46 +221,48 @@ export function useAuditor() {
     if (workerRef.current) workerRef.current.onmessage = onMessage;
   }, [onMessage]);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    ensureWorker();
+    return () => {
       workerRef.current?.terminate();
+      workerRef.current = null;
       if (debounce.current) clearTimeout(debounce.current);
-    },
-    [],
-  );
+    };
+    // Mount and unmount only; ensureWorker's identity changes with the callbacks it wraps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const freshStart = useCallback(
     (label: string) => {
-      workerRef.current?.terminate();
-      workerRef.current = null;
+      ensureWorker().postMessage({ type: "reset" } satisfies WorkerInput);
+      if (debounce.current) clearTimeout(debounce.current);
+      disputeWaiters.current.clear();
       priceTouched.current = false;
       vendorTouched.current = false;
       setState({ ...INITIAL, phase: "working", stage: "reading", progress: 0.02, label });
     },
-    [],
+    [ensureWorker],
   );
 
   const loadFile = useCallback(
     (file: File) => {
       freshStart(file.name);
-      ensureWorker();
       post({ type: "peek", input: file, label: file.name });
     },
-    [ensureWorker, freshStart, post],
+    [freshStart, post],
   );
 
   const loadSample = useCallback(
     (preset: Preset) => {
       freshStart(`Sample data (${preset})`);
-      ensureWorker();
       post({ type: "sample", preset });
     },
-    [ensureWorker, freshStart, post],
+    [freshStart, post],
   );
 
   const reset = useCallback(() => {
-    workerRef.current?.terminate();
-    workerRef.current = null;
+    workerRef.current?.postMessage({ type: "reset" } satisfies WorkerInput);
+    if (debounce.current) clearTimeout(debounce.current);
     disputeWaiters.current.clear();
     setState(INITIAL);
   }, []);

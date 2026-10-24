@@ -100,7 +100,8 @@ export function OptionsPanel({
                 const t = e.target.value.replace(/[^0-9.]/g, "");
                 setPriceText(t);
                 const n = t === "" ? 0 : Number(t);
-                if (Number.isFinite(n)) onOpts({ pricePerResolution: n }, "price");
+                // The filter above already removes minus signs; the guard keeps the price at zero or more.
+                if (Number.isFinite(n) && n >= 0) onOpts({ pricePerResolution: n }, "price");
               }}
             />
           </div>
@@ -113,6 +114,9 @@ export function OptionsPanel({
                   Source
                 </Link>
                 . Use your contract rate if it differs.
+                {preset === "gorgias" && (
+                  <> Gorgias lists $1.00 on monthly plans, $0.90 on annual plans and $1.50 for usage above the plan.</>
+                )}
               </>
             ) : (
               <>No confirmed public price for this vendor. Enter your contract rate to see dollars at risk.</>

@@ -2,7 +2,7 @@
 
 ## What does Resolvara do?
 
-It reads an export of your support conversations, finds the ones where an AI agent took part, and applies the Strict Resolution Standard to them. It shows how many conversations your vendor billed as resolutions, how many of those show no sign of failure, and which ones do.
+It reads an export of your support conversations, finds the ones where an AI agent took part, and applies the Strict Resolution Standard to them. It shows how many of the conversations that could be judged your vendor billed as resolutions, how many of all those show no sign of failure, and which billed ones do.
 
 ## Does my data leave my browser?
 
@@ -26,7 +26,7 @@ Conversations created in the last W days of your export (default 7). They have n
 
 ## What does "unverifiable" mean?
 
-The conversation has no customer identifier and no other signal available, so a repeat contact cannot be checked. These are left out of the phantom share and shown separately. Re-export with a customer id or email column to include them.
+The conversation has no customer identifier and shows no other fail signal. Without an identifier a repeat contact cannot be checked, so the Standard cannot say it passed. These are unjudged, not failed: they are left out of every rate and shown separately. Re-export with a customer id or email column to include them.
 
 ## What is the dispute pack and what should I do with it?
 
@@ -54,7 +54,7 @@ Because the point is trust. A measurement that decides how you read an invoice s
 
 ## What is the community benchmark?
 
-An opt-in collection of anonymous aggregates. A vendor's numbers are not shown until at least 30 contributions exist for it, and the benchmark page explains how the numbers are produced.
+An opt-in collection of anonymous aggregates. When you contribute you pick the vendor from a fixed list. A vendor's numbers are not shown until at least 30 contributions exist for it, only contributions made with the default 7-day window are compared, and the benchmark page explains how the numbers are produced. Sample data is never accepted.
 
 ## How do I report a mistake or suggest a change to the Standard?
 

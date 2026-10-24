@@ -120,7 +120,7 @@
       "Number of agent messages",
       "Number of customer messages"
     ],
-    "presetSupport": "native",
+    "presetSupport": "generic",
     "sources": [
       { "url": "https://www.gorgias.com/pricing", "label": "Gorgias pricing page" },
       { "url": "https://docs.gorgias.com/en-US/how-youre-billed-for-using-gorgias-199385", "label": "Gorgias docs: how you're billed" },

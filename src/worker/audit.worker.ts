@@ -1,13 +1,17 @@
 /// <reference lib="webworker" />
 // Audit worker: all parsing and classification runs here, off the main thread.
 // No network access of any kind. The engine is code-only; see docs/SPEC.md.
-import Papa from "papaparse";
+//
+// The page creates this worker once and keeps it. Messages are queued and handled one at a
+// time, so a debounced "audit" can never run in the middle of a parse. A "reset" message
+// (a new file, or Start over) discards the queue and any parse still running.
 import {
   audit,
   contributionPayload,
   detectPreset,
   disputeSummaryText,
   parseFile,
+  peekFile,
   sampleDataset,
   toDisputeCsv,
   type AuditOptions,
@@ -30,102 +34,33 @@ let fullReport: AuditReport | null = null;
 let lastOpts: AuditOptions | null = null;
 let lastPreset: Preset = "generic";
 
-const PEEK_BYTES = 768 * 1024;
-const PEEK_ROWS = 40;
-
-function flatten(
-  obj: Record<string, unknown>,
-  prefix = "",
-  depth = 0,
-  out: Record<string, unknown> = {},
-): Record<string, unknown> {
-  for (const [k, v] of Object.entries(obj)) {
-    const key = prefix ? `${prefix}.${k}` : k;
-    if (v && typeof v === "object" && !Array.isArray(v) && !(v instanceof Date) && depth < 3) {
-      flatten(v as Record<string, unknown>, key, depth + 1, out);
-    } else {
-      out[key] = v;
-    }
-  }
-  return out;
-}
-
-async function readHead(src: File | string): Promise<{ text: string; truncated: boolean }> {
-  if (typeof src === "string") {
-    return { text: src.slice(0, PEEK_BYTES), truncated: src.length > PEEK_BYTES };
-  }
-  const text = await src.slice(0, PEEK_BYTES).text();
-  return { text, truncated: src.size > PEEK_BYTES };
-}
-
-async function peekRows(
-  src: File | string,
-): Promise<{ headers: string[]; rows: Record<string, unknown>[] }> {
-  const { text: rawHead, truncated } = await readHead(src);
-  const head = rawHead.replace(/^﻿/, "");
-  const first = head.trimStart()[0];
-
-  if (first === "{" || first === "[") {
-    let objs: Record<string, unknown>[] = [];
-    // JSON array: parse the whole thing when it is small enough, else fall back to lines.
-    if (first === "[") {
-      const whole =
-        typeof src === "string"
-          ? src
-          : src.size <= 64 * 1024 * 1024
-            ? await src.text()
-            : head;
-      try {
-        const data = JSON.parse(whole.replace(/^﻿/, "")) as unknown;
-        if (Array.isArray(data)) objs = data.slice(0, PEEK_ROWS) as Record<string, unknown>[];
-      } catch {
-        /* fall through to line mode */
-      }
-    }
-    if (objs.length === 0) {
-      const lines = head.split(/\r?\n/).filter((l) => l.trim());
-      if (truncated) lines.pop();
-      for (const l of lines.slice(0, PEEK_ROWS)) {
-        try {
-          const o = JSON.parse(l.trim().replace(/,$/, "")) as unknown;
-          if (o && typeof o === "object") objs.push(o as Record<string, unknown>);
-        } catch {
-          /* skip a bad line */
-        }
-      }
-    }
-    if (objs.length === 0) throw new Error("Could not read any JSON records from this file.");
-    const rows = objs.map((o) => ({ ...o, ...flatten(o) }));
-    const headers = Array.from(new Set(objs.flatMap((o) => Object.keys(flatten(o)))));
-    return { headers, rows };
-  }
-
-  // CSV / delimited text
-  const lines = head.split(/\r?\n/);
-  if (truncated) lines.pop(); // the last line may be cut mid-row
-  const res = Papa.parse<Record<string, unknown>>(lines.join("\n"), {
-    header: true,
-    preview: PEEK_ROWS,
-    skipEmptyLines: true,
-  });
-  const headers = (res.meta.fields ?? []).filter((h) => h !== "");
-  if (headers.length === 0) throw new Error("Could not find a header row in this file.");
-  return { headers, rows: res.data };
-}
+// Bumped by every reset. Work started under an older generation is dropped.
+let generation = 0;
+const queue: { msg: WorkerInput; gen: number }[] = [];
+let draining = false;
 
 function trimReport(report: AuditReport): AuditReport {
   // Keep only the rows the UI lists (phantom). Counts and aggregates are untouched.
   return { ...report, results: report.results.filter((r) => r.verdict === "phantom") };
 }
 
-ctx.onmessage = async (ev: MessageEvent<WorkerInput>) => {
-  const msg = ev.data;
+function clearState() {
+  input = null;
+  convs = [];
+  fullReport = null;
+  lastOpts = null;
+  lastPreset = "generic";
+}
+
+async function handle(msg: WorkerInput, gen: number): Promise<void> {
+  const alive = () => gen === generation;
   try {
     if (msg.type === "sample") {
       input = sampleDataset(msg.preset);
       convs = [];
       fullReport = null;
-      const { headers, rows } = await peekRows(input);
+      const { headers, rows } = await peekFile(input);
+      if (!alive()) return;
       const d = detectPreset(headers, rows);
       post({
         type: "peeked",
@@ -144,11 +79,11 @@ ctx.onmessage = async (ev: MessageEvent<WorkerInput>) => {
       convs = [];
       fullReport = null;
       post({ type: "progress", stage: "reading", p: 0.02 });
-      let headers: string[];
-      let rows: Record<string, unknown>[];
+      let peek;
       try {
-        ({ headers, rows } = await peekRows(msg.input));
+        peek = await peekFile(msg.input);
       } catch (e) {
+        if (!alive()) return;
         post({
           type: "error",
           stage: "peek",
@@ -156,14 +91,15 @@ ctx.onmessage = async (ev: MessageEvent<WorkerInput>) => {
         });
         return;
       }
-      const d = detectPreset(headers, rows);
+      if (!alive()) return;
+      const d = detectPreset(peek.headers, peek.rows);
       post({
         type: "peeked",
         label: msg.label,
-        headers,
+        headers: peek.headers,
         preset: d.preset,
         confidence: d.confidence,
-        sampleRows: rows.length,
+        sampleRows: peek.rows.length,
         isSample: false,
       });
       return;
@@ -171,7 +107,6 @@ ctx.onmessage = async (ev: MessageEvent<WorkerInput>) => {
 
     if (msg.type === "parse") {
       if (input === null) throw new Error("No file loaded.");
-      lastPreset = msg.preset;
       fullReport = null;
       post({ type: "progress", stage: "parsing", p: 0 });
       let lastSent = 0;
@@ -180,12 +115,15 @@ ctx.onmessage = async (ev: MessageEvent<WorkerInput>) => {
         mapping: msg.mapping,
         onProgress: (p) => {
           const now = Date.now();
-          if (now - lastSent > 60 || p >= 1) {
+          if (alive() && (now - lastSent > 60 || p >= 1)) {
             lastSent = now;
             post({ type: "progress", stage: "parsing", p });
           }
         },
       });
+      if (!alive()) return;
+      // The preset is committed only now, together with the conversations it produced.
+      lastPreset = msg.preset;
       convs = res.conversations;
       post({
         type: "parsed",
@@ -216,6 +154,7 @@ ctx.onmessage = async (ev: MessageEvent<WorkerInput>) => {
       return;
     }
   } catch (e) {
+    if (!alive()) return;
     const stage =
       msg.type === "peek" || msg.type === "sample"
         ? "peek"
@@ -230,4 +169,34 @@ ctx.onmessage = async (ev: MessageEvent<WorkerInput>) => {
       message: e instanceof Error ? e.message : "Something went wrong.",
     });
   }
+}
+
+async function drain() {
+  if (draining) return;
+  draining = true;
+  try {
+    while (queue.length > 0) {
+      const item = queue.shift();
+      if (!item || item.gen !== generation) continue;
+      // Only the newest of several waiting audit requests matters.
+      if (item.msg.type === "audit" && queue.some((q) => q.gen === generation && q.msg.type === "audit")) {
+        continue;
+      }
+      await handle(item.msg, item.gen);
+    }
+  } finally {
+    draining = false;
+  }
+}
+
+ctx.onmessage = (ev: MessageEvent<WorkerInput>) => {
+  const msg = ev.data;
+  if (msg.type === "reset") {
+    generation += 1;
+    queue.length = 0;
+    clearState();
+    return;
+  }
+  queue.push({ msg, gen: generation });
+  void drain();
 };

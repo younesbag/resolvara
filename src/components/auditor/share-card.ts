@@ -55,29 +55,29 @@ export async function renderShareCard(opts: {
   c.font = `500 26px ${family}`;
   c.fillText(`${vendorName}: billed vs strictly resolved`, 80, 168);
 
-  const col = (x: number, label: string, value: string, color: string) => {
-    c.fillStyle = MUTED;
-    c.font = `500 28px ${family}`;
-    c.fillText(label, x, 300);
-    c.fillStyle = color;
-    c.font = `600 150px ${monoFamily}`;
-    c.fillText(value, x, 452);
-  };
-  col(80, "Billed as resolved", pct(report.billedRate, 0), PAPER);
-  col(660, "Strictly resolved", pct(report.strictRate, 0), PASS);
-
-  // phantom stamp
-  const phantomText = `Phantom share of billed: ${pct(report.phantomShareOfBilled, 0)}`;
-  c.font = `600 24px ${monoFamily}`;
-  const tw = c.measureText(phantomText.toUpperCase()).width;
-  c.strokeStyle = ACCENT;
-  c.lineWidth = 3;
-  c.strokeRect(80, 488, tw + 36, 46);
+  // Lead with the phantom share of billed: it is the one number that needs no comparison of
+  // rates. The two rates share one population (judged AI conversations), so they can sit together.
+  c.fillStyle = MUTED;
+  c.font = `500 28px ${family}`;
+  c.fillText("Billed resolutions that fail the strict test", 80, 262);
   c.fillStyle = ACCENT;
-  c.fillText(phantomText.toUpperCase(), 98, 520);
+  c.font = `600 170px ${monoFamily}`;
+  c.fillText(pct(report.phantomShareOfBilled, 0), 80, 430);
+
+  const side = (y: number, label: string, value: string, color: string) => {
+    c.fillStyle = MUTED;
+    c.font = `500 24px ${family}`;
+    c.fillText(label, 760, y);
+    c.fillStyle = color;
+    c.font = `600 72px ${monoFamily}`;
+    c.fillText(value, 760, y + 76);
+  };
+  side(262, "Billed as resolved", pct(report.billedRate, 0), PAPER);
+  side(388, "Strictly resolved", pct(report.strictRate, 0), PASS);
 
   c.fillStyle = MUTED;
   c.font = `500 22px ${family}`;
+  c.fillText("Judged AI conversations only. Newest days are held back.", 80, 520);
   c.textAlign = "right";
   c.fillText(`Strict Resolution Standard v${report.standardVersion}, ${windowDays}-day window`, W - 80, 520);
   c.fillText(new URL(siteConfig.url).host, W - 80, 560);

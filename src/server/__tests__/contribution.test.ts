@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import type { Contribution } from "@/engine";
+import { CONTRIBUTION_VENDORS, type Contribution } from "@/engine";
+import vendorsJson from "../../../content/vendors.json";
 import {
   MAX_PER_WINDOW,
   aggregateContributions,
@@ -12,7 +13,7 @@ import {
 const base: Contribution = {
   standardVersion: "0.1",
   preset: "intercom",
-  vendor: "Intercom Fin",
+  vendor: "intercom",
   periodDays: 90,
   aiConversationsBucket: "1k-10k",
   billedRate: 0.6,
@@ -39,8 +40,16 @@ describe("contributionSchema", () => {
     expect(contributionSchema.safeParse({ ...base, aiConversationsBucket: "5" }).success).toBe(false);
     expect(contributionSchema.safeParse({ ...base, preset: "other" }).success).toBe(false);
   });
-  it("rejects free text in vendor", () => {
+  it("rejects free text in vendor: only the fixed list is accepted", () => {
     expect(contributionSchema.safeParse({ ...base, vendor: "<script>alert(1)</script>" }).success).toBe(false);
+    expect(contributionSchema.safeParse({ ...base, vendor: "Acme Corp" }).success).toBe(false);
+    expect(contributionSchema.safeParse({ ...base, vendor: "Zendesk's" }).success).toBe(false);
+    expect(contributionSchema.safeParse({ ...base, vendor: "other" }).success).toBe(true);
+    expect(contributionSchema.safeParse({ ...base, vendor: "help-scout" }).success).toBe(true);
+  });
+  it("keeps the vendor list in step with content/vendors.json", () => {
+    const slugs = (vendorsJson as { slug: string }[]).map((v) => v.slug).sort();
+    expect([...CONTRIBUTION_VENDORS].filter((v) => v !== "other").sort()).toEqual(slugs);
   });
 });
 
@@ -63,14 +72,34 @@ describe("aggregateContributions", () => {
   it("hides rates below n=30 and shows them at n=30", () => {
     const mk = (i: number): Contribution => ({ ...base, strictRate: i / 100, billedRate: 0.5 });
     const below = aggregateContributions(Array.from({ length: 29 }, (_, i) => mk(i)));
-    const row29 = below.find((r) => r.preset === "intercom")!;
-    expect(row29).toEqual({ preset: "intercom", n: 29 });
+    const row29 = below.find((r) => r.vendor === "intercom")!;
+    expect(row29).toEqual({ vendor: "intercom", n: 29 });
     const at = aggregateContributions(Array.from({ length: 30 }, (_, i) => mk(i)));
-    const row30 = at.find((r) => r.preset === "intercom")!;
+    const row30 = at.find((r) => r.vendor === "intercom")!;
     expect(row30.n).toBe(30);
     expect(row30.medianStrictRate).toBeCloseTo(0.145, 5);
     expect(row30.medianBilledRate).toBe(0.5);
     expect(row30.strictIqr![0]).toBeLessThan(row30.strictIqr![1]);
-    expect(at.find((r) => r.preset === "zendesk")).toEqual({ preset: "zendesk", n: 0 });
+    expect(at.find((r) => r.vendor === "zendesk")).toEqual({ vendor: "zendesk", n: 0 });
+  });
+  it("groups by vendor, not by preset (review M1)", () => {
+    // Thirty generic-preset exports from thirty different vendors must not form one "vendor".
+    const items: Contribution[] = Array.from({ length: 30 }, (_, i) => ({
+      ...base,
+      preset: "generic",
+      vendor: i % 2 === 0 ? "hubspot" : "front",
+    }));
+    const rows = aggregateContributions(items);
+    expect(rows.find((r) => r.vendor === "hubspot")).toEqual({ vendor: "hubspot", n: 15 });
+    expect(rows.find((r) => r.vendor === "front")).toEqual({ vendor: "front", n: 15 });
+  });
+  it("pools only contributions made with the default 7-day window (review M1)", () => {
+    const items: Contribution[] = [
+      ...Array.from({ length: 30 }, () => ({ ...base, windowDays: 7, strictRate: 0.4 })),
+      ...Array.from({ length: 10 }, () => ({ ...base, windowDays: 30, strictRate: 0.9 })),
+    ];
+    const row = aggregateContributions(items).find((r) => r.vendor === "intercom")!;
+    expect(row.n).toBe(30);
+    expect(row.medianStrictRate).toBeCloseTo(0.4, 10);
   });
 });

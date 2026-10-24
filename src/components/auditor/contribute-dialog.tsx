@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { CheckCircle, Warning } from "@phosphor-icons/react";
 import Link from "next/link";
-import type { Contribution } from "@/engine";
+import { CONTRIBUTION_VENDORS, type Contribution, type ContributionVendor } from "@/engine";
 import { Modal } from "../modal";
+import { CONTRIBUTION_VENDOR_LABEL } from "./meta";
 
 type Status = "idle" | "sending" | "done" | "error";
 
@@ -19,18 +20,21 @@ export function ContributeDialog({
 }) {
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
+  const [vendorPick, setVendorPick] = useState<ContributionVendor | null>(null);
 
-  const json = payload ? JSON.stringify(payload, null, 2) : "";
+  // The vendor is chosen from a fixed list, never typed. Everything else is exactly what the engine built.
+  const outgoing: Contribution | null = payload ? { ...payload, vendor: vendorPick ?? payload.vendor } : null;
+  const json = outgoing ? JSON.stringify(outgoing, null, 2) : "";
 
   async function send() {
-    if (!payload) return;
+    if (!outgoing) return;
     setStatus("sending");
     setMessage("");
     try {
       const res = await fetch("/api/contribute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(outgoing),
       });
       if (res.ok) {
         setStatus("done");
@@ -78,6 +82,24 @@ export function ContributeDialog({
         </div>
       ) : (
         <div className="space-y-5">
+          <div>
+            <label htmlFor="contribute-vendor" className="field-label">
+              Which vendor is this?
+            </label>
+            <select
+              id="contribute-vendor"
+              className="field"
+              value={vendorPick ?? payload?.vendor ?? "other"}
+              onChange={(e) => setVendorPick(e.target.value as ContributionVendor)}
+            >
+              {CONTRIBUTION_VENDORS.map((v) => (
+                <option key={v} value={v}>
+                  {CONTRIBUTION_VENDOR_LABEL[v]}
+                </option>
+              ))}
+            </select>
+            <p className="field-help">Picked from a fixed list so no free text is ever sent.</p>
+          </div>
           <pre
             tabIndex={0}
             aria-label="The exact JSON that will be sent"
@@ -110,7 +132,7 @@ export function ContributeDialog({
               type="button"
               className="btn btn-primary"
               onClick={send}
-              disabled={!payload || status === "sending"}
+              disabled={!outgoing || status === "sending"}
             >
               {status === "sending" ? "Sending" : "Send these numbers"}
             </button>

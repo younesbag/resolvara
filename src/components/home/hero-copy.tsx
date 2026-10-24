@@ -11,8 +11,8 @@ export function HeroCopy() {
         Were the resolutions you paid for real?
       </h1>
       <p className="mt-6 max-w-[44ch] text-lg text-ink-2">
-        Drop your support export to count the billed resolutions that were not. Nothing leaves your
-        browser.
+        Drop your support export to count the billed resolutions that were not. Your file never leaves
+        your browser.
       </p>
     </div>
   );

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { ColumnMapping, Preset } from "@/engine";
 import { Modal } from "../modal";
-import { MAPPER_FIELDS, PRESET_OPTIONS } from "./meta";
+import { CSAT_SCALE_OPTIONS, MAPPER_FIELDS, PRESET_OPTIONS } from "./meta";
 
 const GUESS: Record<string, RegExp> = {
   id: /^(id|conversation[ _.-]?id|ticket[ _.-]?id|ticket|conversation)$|(^|[ _.-])id$/i,
@@ -54,7 +54,7 @@ export function MapperDialog({
       onClose={onClose}
       wide
       title="Match your columns"
-      description="Pick the column that holds each field. Nothing leaves this tab."
+      description="Pick the column that holds each field. Your file stays in this tab."
     >
       {open && (
         <MapperForm
@@ -162,6 +162,29 @@ function MapperForm({
               </select>
               <p className="field-help">{f.help}</p>
             </div>
+            {f.scaleKey && mapping[f.key] && (
+              <div>
+                <label htmlFor={`map-${f.scaleKey}`} className="field-label">
+                  Rating scale
+                </label>
+                <select
+                  id={`map-${f.scaleKey}`}
+                  className="field"
+                  value={mapping[f.scaleKey] ?? ""}
+                  onChange={(e) => set(f.scaleKey as string, e.target.value)}
+                >
+                  {CSAT_SCALE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="field-help">
+                  A 1 to 5 rating of 2 becomes 0.25. Choose the scale your tool uses; the file&apos;s own
+                  lowest and highest scores are never used to stretch it.
+                </p>
+              </div>
+            )}
             {f.valueKey && mapping[f.key] && (
               <div>
                 <label htmlFor={`map-${f.valueKey}`} className="field-label">

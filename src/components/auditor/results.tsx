@@ -29,7 +29,7 @@ export function Results({
   const report = state.report;
   if (!report) return null;
 
-  const judged = report.billed - report.pending - report.unverifiable;
+  const judged = report.billedJudged;
   const warnings = [
     ...state.parseWarnings,
     ...report.warnings,
@@ -100,6 +100,7 @@ export function Results({
             windowDays={state.opts.windowDays}
             hasPhantom={report.phantom > 0}
             requestDispute={api.requestDispute}
+            canContribute={!state.isSample && state.payload !== null}
             onContribute={() => setContribute(true)}
             onReset={api.reset}
           />
@@ -156,8 +157,17 @@ export function Results({
                 </li>
                 <li>
                   <span className="num font-semibold text-ink">{int(report.unverifiable)}</span> have no
-                  customer key and no other signal, so a repeat contact cannot be checked.
+                  customer key and no other fail signal. Without a key a repeat contact cannot be checked,
+                  so a pass cannot be shown. They are left out of every rate instead of counted as
+                  failures.
                 </li>
+                {report.failUnbilled > 0 && (
+                  <li>
+                    <span className="num font-semibold text-ink">{int(report.failUnbilled)}</span> were not
+                    billed but show a fail signal. They count as not strictly resolved in the strict rate and
+                    are not phantom, because nothing was billed for them.
+                  </li>
+                )}
               </ul>
             </div>
           </div>
@@ -166,7 +176,11 @@ export function Results({
         </>
       )}
 
-      <ContributeDialog open={contribute} payload={state.payload} onClose={() => setContribute(false)} />
+      <ContributeDialog
+        open={contribute && !state.isSample}
+        payload={state.isSample ? null : state.payload}
+        onClose={() => setContribute(false)}
+      />
     </div>
   );
 }

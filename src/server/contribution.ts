@@ -1,7 +1,7 @@
 // Server-side contribution schema, aggregation and rate limiting.
 // Server only: imports nothing from React or the browser. See docs/SPEC.md "Contribution API".
 import { z } from "zod";
-import type { Contribution, Preset } from "@/engine";
+import { CONTRIBUTION_VENDORS, type Contribution, type ContributionVendor } from "@/engine";
 
 export const CONTRIBUTION_PREFIX = "contributions/";
 export const BENCHMARK_MIN_N = 30;
@@ -12,12 +12,8 @@ const rate = z.number().finite().min(0).max(1);
 export const contributionSchema = z.strictObject({
   standardVersion: z.literal("0.1"),
   preset: z.enum(["intercom", "zendesk", "ada", "gorgias", "generic"]),
-  vendor: z
-    .string()
-    .trim()
-    .min(1)
-    .max(64)
-    .regex(/^[A-Za-z0-9][A-Za-z0-9 ._()+/-]*$/, "vendor contains unsupported characters"),
+  // A closed list (the slugs in content/vendors.json plus "other"), never free text.
+  vendor: z.enum(CONTRIBUTION_VENDORS),
   periodDays: z.number().int().min(1).max(3650),
   aiConversationsBucket: z.enum(["<1k", "1k-10k", "10k-100k", ">100k"]),
   billedRate: rate,
@@ -62,8 +58,11 @@ export function resetRateLimit() {
 
 // ---------- benchmark aggregation ----------
 
+/** Only contributions made with the default 7-day window are compared; others are stored but not pooled. */
+export const BENCHMARK_WINDOW_DAYS = 7;
+
 export interface BenchmarkAggregate {
-  preset: Preset;
+  vendor: ContributionVendor;
   n: number;
   medianBilledRate?: number;
   medianStrictRate?: number;
@@ -80,19 +79,21 @@ export function quantile(values: number[], q: number): number {
   return s[lo] + (s[hi] - s[lo]) * (pos - lo);
 }
 
-const PRESETS: Preset[] = ["intercom", "zendesk", "ada", "gorgias", "generic"];
-
-/** Aggregates per preset. Rates are included only when n >= minN (the n>=30 rule). */
+/**
+ * Aggregates per vendor over contributions that used the same window (7 days). Rates are included
+ * only when n >= minN (the n>=30 rule). The `other` group lumps unlisted vendors together.
+ */
 export function aggregateContributions(
   items: Contribution[],
   minN = BENCHMARK_MIN_N,
 ): BenchmarkAggregate[] {
-  return PRESETS.map((preset) => {
-    const group = items.filter((c) => c.preset === preset);
+  const comparable = items.filter((c) => c.windowDays === BENCHMARK_WINDOW_DAYS);
+  return CONTRIBUTION_VENDORS.map((vendor) => {
+    const group = comparable.filter((c) => c.vendor === vendor);
     const n = group.length;
-    if (n < minN) return { preset, n };
+    if (n < minN) return { vendor, n };
     return {
-      preset,
+      vendor,
       n,
       medianBilledRate: quantile(group.map((c) => c.billedRate), 0.5),
       medianStrictRate: quantile(group.map((c) => c.strictRate), 0.5),

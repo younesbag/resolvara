@@ -29,12 +29,14 @@ npm run typecheck
 npm run build
 ```
 
+The first build downloads the Geist fonts from Google Fonts (`next/font/google`), so a build needs network access. Nothing is fetched from Google at runtime: the fonts are served from this site. Files up to 400 MB are read in the browser; split larger exports by date.
+
 ## How the engine works
 
 1. **Parse.** CSV (comma or semicolon, BOM, quoted newlines) and JSON or JSONL are read in a Web Worker. A preset (Intercom, Zendesk, Ada, Gorgias) or the generic column mapper turns each row into a canonical conversation.
-2. **Classify.** Each AI conversation gets one verdict, in order: *pending window* (too recent to judge), *unverifiable* (no customer key and no other signal), *phantom* (billed and at least one fail signal), or a pass (*strict* or *confirmed*).
+2. **Classify.** Each AI conversation gets one verdict, in order: *pending window* (too recent to judge); *phantom* (billed and at least one fail signal) or *not strict, not billed* (a fail signal on a conversation nobody billed); *unverifiable* (no customer key and no fail signal, so a pass cannot be shown); or a pass (*strict* or *confirmed*).
 3. **Fail signals.** The vendor escalated it, a human replied, it was reopened, the same customer wrote again within the window (default 7 days), or the satisfaction score was below 0.4 on a 0..1 scale. Every flag carries its evidence.
-4. **Report.** Billed and strict rates, phantom count, dollars at risk at your price per resolution, reasons, weekly trend, and a sensitivity table for windows of 1, 3, 7, 14 and 30 days.
+4. **Report.** Billed and strict rates over the same judged conversations, phantom count, dollars at risk at your price per resolution, reasons, weekly trend, and a sensitivity table for windows of 1, 3, 7, 14 and 30 days.
 
 The full rules are in [`content/standard.md`](content/standard.md).
 

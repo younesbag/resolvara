@@ -35,13 +35,13 @@ export function BigNumbers({ report, opts }: { report: AuditReport; opts: AuditO
         <Stat
           label="Billed as resolved by the vendor"
           value={pct(report.billedRate)}
-          note={`${int(report.billed)} of ${int(report.aiConversations)} AI conversations`}
+          note={`${int(report.billedJudged)} of ${int(report.judged)} judged AI conversations`}
         />
         <Stat
           label="Strictly resolved"
           value={pct(report.strictRate)}
           tone="pass"
-          note={`${int(report.strictPass + report.confirmedPass)} pass the Standard, ${int(report.confirmedPass)} with explicit confirmation`}
+          note={`${int(report.strictPass + report.confirmedPass)} of the same ${int(report.judged)} pass the Standard, ${int(report.confirmedPass)} with explicit confirmation`}
         />
       </div>
 
@@ -54,7 +54,9 @@ export function BigNumbers({ report, opts }: { report: AuditReport; opts: AuditO
         <div>
           <dt className="text-sm font-medium text-ink-2">Share of billed</dt>
           <dd className="num-lg mt-1 text-3xl font-semibold">{pct(report.phantomShareOfBilled)}</dd>
-          <dd className="mt-1 text-sm text-ink-3">Pending and unverifiable left out</dd>
+          <dd className="mt-1 text-sm text-ink-3">
+            Of {int(report.billedJudged)} billed and judged. Pending and unverifiable left out
+          </dd>
         </div>
         <div>
           <dt className="text-sm font-medium text-ink-2">Dollars at risk</dt>

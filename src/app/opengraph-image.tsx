@@ -43,7 +43,7 @@ export default function OpengraphImage() {
             Were the resolutions you paid for real?
           </div>
           <div style={{ fontSize: 34, color: "#9aa4ae" }}>
-            Drop your support export. Nothing leaves your browser.
+            Drop your support export. Your file never leaves your browser.
           </div>
         </div>
       </div>

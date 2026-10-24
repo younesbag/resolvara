@@ -19,6 +19,7 @@ export function ActionsBar({
   vendorName,
   windowDays,
   hasPhantom,
+  canContribute,
   requestDispute,
   onContribute,
   onReset,
@@ -28,6 +29,7 @@ export function ActionsBar({
   vendorName: string;
   windowDays: number;
   hasPhantom: boolean;
+  canContribute: boolean; // false for sample data: it must never reach the community benchmark
   requestDispute: () => Promise<string>;
   onContribute: () => void;
   onReset: () => void;
@@ -102,7 +104,13 @@ export function ActionsBar({
           <ShareNetwork size={18} weight="bold" aria-hidden />
           Share card
         </button>
-        <button type="button" className="btn btn-secondary" onClick={onContribute}>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={onContribute}
+          disabled={!canContribute}
+          title={canContribute ? undefined : "Sample data is never added to the benchmark. Audit your own export to contribute."}
+        >
           <HandHeart size={18} weight="bold" aria-hidden />
           Contribute
         </button>

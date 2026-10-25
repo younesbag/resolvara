@@ -134,6 +134,7 @@ export function slimTicket(t: ZTicket, fields: ResolutionFieldIds): ZTicket {
     custom_fields: (t.custom_fields ?? []).filter((f) => keep.has(f.id)).map((f) => ({ id: f.id, value: f.value })),
     satisfaction_rating: t.satisfaction_rating ? { score: t.satisfaction_rating.score ?? null } : null,
     metric_set: t.metric_set ? slimMetric(t.metric_set, t.id) : null,
+    support_type: t.support_type ?? null,
   };
 }
 
@@ -303,6 +304,8 @@ export function createFetcher(zaf: Zaf, rt: ZafRuntime = realRuntime): Fetcher {
     }
 
     async function readComments(id: number): Promise<void> {
+      // Candidates come from the AI-agent export, so the AI took part from the ticket's start.
+      const aiStart = session.ai.tickets.get(id)?.created_at ?? null;
       const comments: ZComment[] = [];
       const users = new Map<number, ZUser>();
       let next: string | null = `/api/v2/tickets/${id}/comments.json?include=users&per_page=100`;
@@ -326,7 +329,7 @@ export function createFetcher(zaf: Zaf, rt: ZafRuntime = realRuntime): Fetcher {
         for (const u of page.users ?? []) users.set(u.id, u);
         next = page.next_page ?? null;
       }
-      const verdict = replyAfterAi(comments, [...users.values()]);
+      const verdict = replyAfterAi(comments, [...users.values()], aiStart);
       if (verdict !== null) session.replyOrder[id] = verdict;
       session.replyAttempted.add(id);
       done += 1;

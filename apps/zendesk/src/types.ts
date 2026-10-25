@@ -15,6 +15,8 @@ export interface ZTicket {
   satisfaction_rating?: { score?: string | null } | null;
   /** Present when the export ran with include=metric_sets and the API inlines it. */
   metric_set?: ZMetricSet | null;
+  /** "ai_agent" while the conversation is AI-only; "agent" once escalated or for ordinary tickets (observed 2026-10-25). */
+  support_type?: string | null;
 }
 
 /** Sideloaded `metric_sets` row (include=metric_sets), or the inlined `metric_set`. */

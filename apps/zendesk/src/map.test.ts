@@ -279,6 +279,13 @@ describe('replyAfterAi', () => {
   it('null when no AI comment is marked (order unknown)', () => {
     expect(replyAfterAi([c(1, 1, '2026-09-01T10:00:00Z'), c(2, 3, '2026-09-01T11:00:00Z')], users)).toBeNull();
   });
+  it('real AI-agent tickets: no AI comment, but the ticket start marks the AI (observed 2026-10-25)', () => {
+    const placeholder = c(1, 1, '2026-09-01T10:00:00Z', false); // private "Conversation with Web User ..."
+    const staffReply = c(2, 3, '2026-09-01T10:05:00Z');
+    expect(replyAfterAi([placeholder, staffReply], users, '2026-09-01T10:00:00Z')).toBe(true);
+    expect(replyAfterAi([placeholder], users, '2026-09-01T10:00:00Z')).toBe(false);
+    expect(replyAfterAi([placeholder, staffReply], users)).toBeNull();
+  });
   it('a later end-user CC is not taken for the AI (review finding 6)', () => {
     expect(
       replyAfterAi([c(1, 1, '2026-09-01T10:00:00Z'), c(2, 3, '2026-09-01T11:00:00Z'), c(3, 5, '2026-09-01T12:00:00Z')], users),
@@ -351,5 +358,16 @@ describe('withBilledBasis (finding 7)', () => {
   });
   it('names the Usage CSV when it is the basis', () => {
     expect(withBilledBasis(text, inp([1, 2]))).toMatch(/the 2 ticket ids in the Zendesk Usage > Resolutions export/);
+  });
+});
+
+describe('support_type marks AI-agent tickets (observed 2026-10-25)', () => {
+  it('treats support_type ai_agent as AI-scoped even from the unscoped export', () => {
+    const t: ZTicket = { id: 9, created_at: '2026-09-01T10:00:00Z', requester_id: 1, support_type: 'ai_agent', custom_fields: [] };
+    const res = toConversations(
+      { aiTickets: [], otherTickets: [t], metricSets: [], fields: FIELDS, periodStart: '2026-08-01T00:00:00Z', fetchedAt: FETCHED },
+      makeKeyHasher(),
+    );
+    expect(res.conversations[0]).toMatchObject({ aiInvolved: true, vendorState: 'unknown', billed: false });
   });
 });

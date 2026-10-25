@@ -244,7 +244,7 @@ describe("review fixes", () => {
 });
 
 describe("reply-order review fixes", () => {
-  function setup(verdictFor: (id: number) => "marked" | "unmarked") {
+  function setup(verdictFor: (id: number) => "marked" | "gone") {
     const rt = fakeRuntime();
     const session = createSession(new Date("2026-09-24T00:00:00Z"));
     for (let id = 1; id <= 4; id++) {
@@ -253,10 +253,10 @@ describe("reply-order review fixes", () => {
     }
     const { zaf, calls } = fakeZaf(rt, (path) => {
       const id = Number(path.split("/")[4]);
-      const marked = verdictFor(id) === "marked";
+      if (verdictFor(id) === "gone") return new ZendeskError("http", "gone", 404);
       return {
         comments: [
-          { id: 1, author_id: 7, public: true, created_at: "2026-10-01T00:00:00Z", via: marked ? { channel: "ai_agent" } : null },
+          { id: 1, author_id: 7, public: true, created_at: "2026-10-01T00:00:00Z", via: { channel: "ai_agent" } },
           { id: 2, author_id: 8, public: true, created_at: "2026-10-01T01:00:00Z" },
         ],
         users: [{ id: 7, role: "end-user" }, { id: 8, role: "agent" }],
@@ -265,8 +265,8 @@ describe("reply-order review fixes", () => {
     return { rt, zaf, calls, session };
   }
 
-  it("never re-reads a ticket whose order stayed unknown, and counts it in the cap (finding 5)", async () => {
-    const { rt, zaf, calls, session } = setup((id) => (id % 2 ? "unmarked" : "marked"));
+  it("never re-reads a ticket without an answer (here: deleted, 404), and counts it in the cap (finding 5)", async () => {
+    const { rt, zaf, calls, session } = setup((id) => (id % 2 ? "gone" : "marked"));
     const f = createFetcher(zaf, rt);
     const r1 = await f.checkReplyOrder(session, { cap: 2 });
     expect(r1).toMatchObject({ attempted: 2, checked: 1, candidates: 4, skipped: 2 });

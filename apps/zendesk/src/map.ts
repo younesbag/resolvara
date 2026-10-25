@@ -53,7 +53,7 @@ export function toConversations(
   const newer = (a: ZTicket, b: ZTicket) => (Date.parse(b.updated_at ?? '') || 0) > (Date.parse(a.updated_at ?? '') || 0);
   for (const t of [...input.aiTickets, ...input.otherTickets]) {
     const prev = byId.get(t.id);
-    if (!prev || newer(prev.t, t)) byId.set(t.id, { t, scoped: aiIds.has(t.id) });
+    if (!prev || newer(prev.t, t)) byId.set(t.id, { t, scoped: aiIds.has(t.id) || t.support_type === 'ai_agent' });
   }
 
   const billedSet = input.billedIds ? new Set(input.billedIds) : null;

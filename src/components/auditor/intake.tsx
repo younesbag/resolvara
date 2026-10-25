@@ -116,7 +116,7 @@ export function Intake({
   }
 
   return (
-    <div className="rounded-[var(--radius)] border border-line-strong bg-surface p-3 sm:p-4">
+    <div className="rounded-[var(--radius)] border border-line bg-surface p-3 shadow-[0_1px_2px_rgb(15_19_23/0.04),0_12px_32px_-12px_rgb(15_19_23/0.12)] sm:p-4">
       <div
         onDragEnter={(e) => {
           e.preventDefault();
@@ -134,59 +134,63 @@ export function Intake({
           setOver(false);
           pick(e.dataTransfer.files);
         }}
-        className={`flex flex-col items-start gap-5 rounded-[var(--radius)] border border-dashed px-5 py-8 transition-colors sm:px-8 sm:py-10 ${
-          over ? "border-ink bg-surface-2" : "border-line-strong"
+        className={`flex flex-col items-center gap-5 rounded-[var(--radius)] border-2 border-dashed px-5 py-10 text-center transition-colors sm:px-8 sm:py-12 ${
+          over ? "border-ink bg-surface-2" : "border-line"
         }`}
       >
-        <UploadSimple size={30} weight="regular" className="text-ink" aria-hidden />
+        <span className="flex size-12 items-center justify-center rounded-full bg-surface-2">
+          <UploadSimple size={24} weight="bold" className="text-ink" aria-hidden />
+        </span>
         <div>
           <p className="text-xl font-semibold tracking-tight">Drop your export here</p>
-          <p className="mt-1.5 max-w-[42ch] text-sm text-ink-2">
-            CSV, JSON or JSONL from Intercom, Zendesk, Ada or Gorgias. Any other helpdesk works with
-            a column mapper.
+          <p className="mx-auto mt-1.5 max-w-[36ch] text-sm text-ink-2">
+            CSV or JSON from Intercom, Zendesk, Ada or Gorgias. Other helpdesks work with a column
+            mapper.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <input
-            ref={inputRef}
-            id="file-input"
-            type="file"
-            accept=".csv,.json,.jsonl,.ndjson,.txt,text/csv,application/json"
-            className="sr-only"
-            onChange={(e) => {
-              pick(e.target.files);
-              e.target.value = "";
-            }}
-          />
+        <input
+          ref={inputRef}
+          id="file-input"
+          type="file"
+          accept=".csv,.json,.jsonl,.ndjson,.txt,text/csv,application/json"
+          className="sr-only"
+          onChange={(e) => {
+            pick(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        <div className="flex flex-wrap justify-center gap-3">
           <button type="button" className="btn btn-primary" onClick={() => inputRef.current?.click()}>
             Choose file
           </button>
-          <div className="flex flex-wrap items-center gap-x-1 text-sm text-ink-2">
-            <span>Try sample data:</span>
-            {(
-              [
-                ["intercom", "Intercom"],
-                ["zendesk", "Zendesk"],
-                ["generic", "Generic"],
-              ] as [Preset, string][]
-            ).map(([p, name]) => (
+          <button type="button" className="btn btn-secondary" onClick={() => onSample("intercom")}>
+            Try the sample
+          </button>
+        </div>
+        <p className="text-sm text-ink-3">
+          Other samples:{" "}
+          {(
+            [
+              ["zendesk", "Zendesk"],
+              ["generic", "Generic CSV"],
+            ] as [Preset, string][]
+          ).map(([p, name], i) => (
+            <span key={p}>
+              {i > 0 && ", "}
               <button
-                key={p}
                 type="button"
                 onClick={() => onSample(p)}
-                className="rounded-[var(--radius)] px-2 py-2 font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink"
+                className="py-1 font-medium text-ink-2 underline decoration-line-strong underline-offset-4 hover:text-ink hover:decoration-ink"
               >
                 {name}
               </button>
-            ))}
-          </div>
-        </div>
+            </span>
+          ))}
+        </p>
       </div>
-      <p className="flex items-start gap-2 px-2 pb-1 pt-4 text-sm text-ink-2 sm:px-4">
-        <LockSimple size={16} weight="bold" className="mt-0.5 shrink-0" aria-hidden />
-        <span>
-          The file is read in this tab. Nothing is uploaded, and no account is needed.
-        </span>
+      <p className="flex items-center justify-center gap-2 px-2 pb-1 pt-4 text-sm text-ink-2">
+        <LockSimple size={16} weight="bold" className="shrink-0" aria-hidden />
+        <span>Read in this tab. Nothing is uploaded, no account needed.</span>
       </p>
     </div>
   );

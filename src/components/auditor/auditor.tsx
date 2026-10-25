@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
+import type { Preset } from "@/engine";
 import { Intake } from "./intake";
 import { MapperDialog } from "./mapper-dialog";
 import type { VendorNote } from "./options-panel";
+import { SAMPLE_EVENT } from "./sample-event";
 import { Results } from "./results";
 import { useAuditor } from "./use-auditor";
 
@@ -14,6 +16,18 @@ export function Auditor({ hero, notes }: { hero: ReactNode; notes: Record<string
   const { state } = api;
   const showResults = state.phase === "results" && state.report !== null;
   const working = state.phase === "working" || state.phase === "mapping";
+
+  // "Run this sample" buttons elsewhere on the page start the same flow as the intake card.
+  const { loadSample } = api;
+  useEffect(() => {
+    const onSample = (e: Event) => {
+      const preset = (e as CustomEvent<Preset>).detail;
+      loadSample(preset);
+      rootRef.current?.scrollIntoView({ block: "start" });
+    };
+    window.addEventListener(SAMPLE_EVENT, onSample);
+    return () => window.removeEventListener(SAMPLE_EVENT, onSample);
+  }, [loadSample]);
 
   // Bring the top of the tool into view when the view swaps between intake and results.
   const rootRef = useRef<HTMLDivElement>(null);
@@ -32,9 +46,9 @@ export function Auditor({ hero, notes }: { hero: ReactNode; notes: Record<string
           <Results state={state} api={api} notes={notes} />
         </div>
       ) : (
-        <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 pb-16 pt-10 sm:px-6 sm:pt-14 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:gap-16 lg:pb-24 lg:pt-20">
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 pb-16 pt-10 sm:px-6 sm:pt-14 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-16 lg:pb-24 lg:pt-20">
           <div>{hero}</div>
-          <div className="rise rise-2">
+          <div>
             <Intake
               onFile={api.loadFile}
               onSample={api.loadSample}

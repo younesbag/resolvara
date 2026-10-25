@@ -4,7 +4,8 @@
   Resolvara design tokens.
   Language: audit ledger. Cool paper, ink text, one signal accent (vermilion) that
   marks phantom resolutions, and one semantic green for strict passes.
-  Shape rule: controls and panels use --radius (6px). Verdict stamps use 2px.
+  Shape rule: cards, panels and inputs use --radius (10px); buttons are full pills.
+  Verdict stamps use 2px: they are labels, not containers.
   Theme: follows the system, overridable via [data-theme] on <html>.
 */
 :root {
@@ -22,7 +23,9 @@
   --pass: #14704c;
   --pass-soft: #def0e7;
   --on-ink: #f5f6f7;
-  --radius: 6px;
+  --panel: #0f1317;
+  --on-panel: #eef0f2;
+  --radius: 10px;
   --stamp-radius: 2px;
   color-scheme: light;
 }
@@ -43,6 +46,8 @@
     --pass: #52c690;
     --pass-soft: #11301f;
     --on-ink: #0c0f12;
+    --panel: #1a1f24;
+    --on-panel: #eceff1;
     color-scheme: dark;
   }
 }
@@ -62,6 +67,8 @@
   --pass: #52c690;
   --pass-soft: #11301f;
   --on-ink: #0c0f12;
+  --panel: #1a1f24;
+  --on-panel: #eceff1;
   color-scheme: dark;
 }
 
@@ -80,6 +87,8 @@
   --color-pass: var(--pass);
   --color-pass-soft: var(--pass-soft);
   --color-on-ink: var(--on-ink);
+  --color-panel: var(--panel);
+  --color-on-panel: var(--on-panel);
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
 }
@@ -132,8 +141,8 @@ body {
     justify-content: center;
     gap: 0.5rem;
     min-height: 2.75rem;
-    padding: 0 1.1rem;
-    border-radius: var(--radius);
+    padding: 0 1.25rem;
+    border-radius: 999px;
     border: 1px solid transparent;
     font-size: 0.9375rem;
     font-weight: 550;
@@ -377,10 +386,10 @@ body {
 }
 
 /* ---------- Motion ---------- */
+/* Transform only: content is visible on first paint even before the animation runs. */
 @keyframes rise {
   from {
-    opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;

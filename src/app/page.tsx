@@ -3,6 +3,7 @@ import type { VendorNote } from "@/components/auditor/options-panel";
 import { FaqTeaser } from "@/components/home/faq-teaser";
 import { HeroCopy } from "@/components/home/hero-copy";
 import { HowItWorks } from "@/components/home/how-it-works";
+import { SampleReport } from "@/components/home/sample-report";
 import { StrictTest } from "@/components/home/strict-test";
 import { TrustStrip } from "@/components/home/trust-strip";
 import { loadFaq, loadVendors, parseFaq } from "@/components/lib/content";
@@ -22,9 +23,10 @@ export default async function Home() {
   return (
     <>
       <Auditor hero={<HeroCopy />} notes={notes} />
-      <TrustStrip />
+      <SampleReport />
       <HowItWorks />
       <StrictTest />
+      <TrustStrip />
       <FaqTeaser items={parseFaq(faqMd)} />
     </>
   );

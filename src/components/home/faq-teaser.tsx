@@ -25,20 +25,12 @@ export const FALLBACK_FAQ: FaqItem[] = [
 export function FaqTeaser({ items }: { items: FaqItem[] }) {
   const list = (items.length > 0 ? items : FALLBACK_FAQ).slice(0, 5);
   return (
-    <section aria-labelledby="faq-h" className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 lg:py-28">
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] lg:gap-20">
-        <div>
-          <h2 id="faq-h" className="max-w-[14ch] text-3xl font-semibold leading-[1.1] tracking-tight sm:text-4xl">
-            Questions people ask first.
-          </h2>
-          <p className="mt-4 max-w-[38ch] text-ink-2">
-            The Standard has the full rules and its known limits.
-          </p>
-          <Link href="/standard" className="btn btn-secondary mt-6">
-            Read the Standard
-          </Link>
-        </div>
-        <div className="divide-y divide-line border-y border-line">
+    <section aria-labelledby="faq-h" className="border-t border-line">
+      <div className="mx-auto w-full max-w-3xl px-4 py-20 sm:px-6 lg:py-24">
+        <h2 id="faq-h" className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          Questions people ask first
+        </h2>
+        <div className="mt-8 divide-y divide-line border-y border-line">
           {list.map((f) => (
             <details key={f.q} className="group py-1">
               <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-3 text-left text-lg font-medium tracking-tight [&::-webkit-details-marker]:hidden">
@@ -56,6 +48,13 @@ export function FaqTeaser({ items }: { items: FaqItem[] }) {
             </details>
           ))}
         </div>
+        <p className="mt-6 text-sm text-ink-2">
+          The full rules and their known limits are in{" "}
+          <Link href="/standard" className="font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+            the Standard
+          </Link>
+          .
+        </p>
       </div>
     </section>
   );

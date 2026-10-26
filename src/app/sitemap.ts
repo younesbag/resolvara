@@ -6,7 +6,7 @@ import { loadVendors } from "@/components/lib/content";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const vendors = await loadVendors();
   const latest = vendors.map((v) => v.checkedAt).sort().at(-1);
-  const paths = ["", "/standard", "/definitions", "/faq", "/calculator", "/privacy", "/about"];
+  const paths = ["", "/standard", "/definitions", "/faq", "/calculator", "/contract", "/privacy", "/about"];
   return [
     ...paths.map((p) => ({
       url: `${siteConfig.url}${p}`,

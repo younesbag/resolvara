@@ -15,6 +15,7 @@ export const FOOTER_LINKS = [
   { href: "/standard", label: "The Standard" },
   { href: "/definitions", label: "Vendor definitions" },
   { href: "/calculator", label: "Calculator" },
+  { href: "/contract", label: "Contract clause" },
   { href: "/benchmark", label: "Benchmark" },
   { href: "/faq", label: "FAQ" },
   { href: "/privacy", label: "Privacy" },

@@ -32,6 +32,10 @@ The conversation has no customer identifier and shows no other fail signal. With
 
 It is a CSV of the flagged conversations with the reason and evidence for each, plus a plain-text summary and an email template. A sensible way to use it: sample some flagged conversations and read them, remove any you disagree with, and send the rest to your vendor with a request for a credit review. State the window and thresholds you used. Keep the request factual, and expect the vendor to apply its contract definition, which may differ from the Standard.
 
+## Can I use the Standard in a contract?
+
+Yes. The Standard is CC BY 4.0, so you can adapt it with attribution. The [contract clause generator](/contract) turns it into plain contract language: a definition of a billable resolution, the monthly export you should ask for, a dispute and credit process, and a rule against changing the definition mid-term. It is a starting point, not legal advice, so have counsel review it before you sign.
+
 ## Which vendors does it support?
 
 It has presets for Intercom, Zendesk, Ada and Gorgias. For any other system there is a generic column mapper where you pick the columns for the id, the customer, the created time and, if you have them, the billed marker, human replies, reopens and satisfaction. The vendor pages list what each vendor says it bills for, with sources and a checked date.

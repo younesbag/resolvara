@@ -31,6 +31,7 @@ export async function GET() {
     `- [How AI support vendors define and bill a resolution](${u}/definitions): pricing and resolution rules side by side, with sources and check dates.`,
     `- [FAQ](${u}/faq)`,
     `- [Calculator](${u}/calculator): what phantom resolutions cost at a given volume and price.`,
+    `- [Contract clause](${u}/contract): ready-to-paste contract language that defines a billable AI resolution, built from the Standard, for order forms and renewals.`,
     `- [Privacy](${u}/privacy): what runs where, verifiable in the browser.`,
     "",
     "## Vendor pages",

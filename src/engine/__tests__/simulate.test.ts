@@ -49,11 +49,11 @@ const count = (s: ReturnType<typeof simulateBilling>, id: string) => s.rows.find
 // Hand-built set. Judged = A..H (8). I is pending (2 days old), J has no customer key (unverifiable).
 //  A  clean, billed, silent                      -> every rule counts it
 //  B  vendor state confirmed, billed             -> every rule counts it
-//  C  human replied, billed                      -> only HubSpot counts it
+//  C  human replied, billed                      -> HubSpot and Fin count it (a teammate joining does not remove a Fin resolution)
 //  D  vendor escalated, billed                   -> no rule counts it
-//  E  customer returns 48h later, billed         -> not Zendesk (72h) and not strict; Fin (24h) counts it
-//  F  customer returns 12h later, billed         -> not Fin, not Zendesk, not strict; Gorgias/Front count it
-//  G  reopened once, billed                      -> not Zendesk, not strict; Fin/Gorgias count it
+//  E  customer returns 48h later, billed         -> not Zendesk (72h) and not strict; Fin counts it (a new conversation is not a reopen)
+//  F  customer returns 12h later, billed         -> not Zendesk, not strict; Fin/Gorgias/Front count it
+//  G  reopened once, billed                      -> not Fin, not Zendesk, not strict; Gorgias counts it
 //  H  clean, NOT billed                          -> counts everywhere a rule ignores billing
 //  U  state unknown, not billed                  -> no rule counts it, the Standard rows included: the AI never claimed it (judged = 9 with U)
 const fixture = (): Conversation[] => [
@@ -83,7 +83,7 @@ describe('simulateBilling on a hand-built set', () => {
 
   it('counts each rule by hand', () => {
     expect(count(s, 'actual').billable).toBe(7);
-    expect(count(s, 'fin').billable).toBe(5); // A B E G H
+    expect(count(s, 'fin').billable).toBe(6); // A B C E F H
     expect(count(s, 'gorgias').billable).toBe(6); // A B E F G H
     expect(count(s, 'front').billable).toBe(6);
     expect(count(s, 'hubspot').billable).toBe(7); // all but D
@@ -93,15 +93,19 @@ describe('simulateBilling on a hand-built set', () => {
   });
 
   it('each rule includes something another excludes', () => {
-    // C: only HubSpot. F: Gorgias/Front but not Fin. E: Fin but not Zendesk.
+    // C (human reply): Fin and HubSpot, not Gorgias. G (reopen): Gorgias, not Fin. E: Fin, not Zendesk.
+    const only = (id: string) => fixture().filter((c) => c.id === id);
+    expect(count(sim(only('C')).s, 'fin').billable).toBe(1);
+    expect(count(sim(only('C')).s, 'gorgias').billable).toBe(0);
+    expect(count(sim(only('G')).s, 'fin').billable).toBe(0);
+    expect(count(sim(only('G')).s, 'gorgias').billable).toBe(1);
     expect(count(s, 'hubspot').billable).toBeGreaterThan(count(s, 'gorgias').billable);
-    expect(count(s, 'gorgias').billable).toBeGreaterThan(count(s, 'fin').billable);
     expect(count(s, 'fin').billable).toBeGreaterThan(count(s, 'zendesk').billable);
   });
 
   it('prices and dollars come from the list prices', () => {
     expect(count(s, 'actual').dollars).toBe(7);
-    expect(count(s, 'fin').dollars).toBeCloseTo(5 * 0.99, 10);
+    expect(count(s, 'fin').dollars).toBeCloseTo(6 * 0.99, 10);
     expect(count(s, 'gorgias').dollars).toBe(6);
     expect(count(s, 'front').dollars).toBeCloseTo(6 * 0.89, 10);
     expect(count(s, 'hubspot').dollars).toBe(3.5);
@@ -119,7 +123,7 @@ describe('simulateBilling on a hand-built set', () => {
   });
 
   it('shares divide by judged', () => {
-    expect(count(s, 'fin').share).toBeCloseTo(5 / 9, 10);
+    expect(count(s, 'fin').share).toBeCloseTo(6 / 9, 10);
     expect(count(s, 'actual').share).toBeCloseTo(7 / 9, 10);
   });
 
@@ -141,11 +145,10 @@ describe('boundaries', () => {
     conv('P2', { customerKey: 'k-P', aiInvolved: false, billed: false, createdAt: new Date(at(20).getTime() + gapMs) }),
   ];
 
-  it('Fin: a return exactly 24h later counts as "came back" (same inclusive rule as the audit)', () => {
-    expect(count(sim(pair(24 * HOUR)).s, 'fin').billable).toBe(0);
-  });
-  it('Fin: a return 24h and one minute later does not', () => {
-    expect(count(sim(pair(24 * HOUR + 60_000)).s, 'fin').billable).toBe(1);
+  it('Fin uses no time cutoff: a new conversation is not a return, a reopen at any time is', () => {
+    expect(count(sim(pair(HOUR)).s, 'fin').billable).toBe(1);
+    expect(count(sim([conv('R1', { reopenCount: 1 })]).s, 'fin').billable).toBe(0);
+    expect(count(sim([conv('R2', { reopenCount: 0, reopenedAt: new Date(at(20).getTime() + 20 * DAY) })], { windowDays: 30 }).s, 'fin').billable).toBe(0);
   });
   it('Zendesk bound: exactly 72h counts as repeat, 72h and one minute does not', () => {
     expect(count(sim(pair(72 * HOUR)).s, 'zendesk').billable).toBe(0);
@@ -188,7 +191,7 @@ describe('edge cases', () => {
       conv('N3', { vendorState: 'unknown', billed: false, humanReplied: true }),
     ];
     const { s } = sim(noState);
-    expect(count(s, 'fin').billable).toBe(2); // N1 N2; N3 has a human reply
+    expect(count(s, 'fin').billable).toBe(3); // N1 N2 N3: a human reply does not remove a Fin resolution
     expect(count(s, 'hubspot').billable).toBe(3); // human replies do not exclude HubSpot
     expect(s.notes.join(' ')).toContain('no resolution-state column');
     expect(sim(fixture()).s.notes).toEqual([]);
@@ -265,7 +268,7 @@ describe('dispute summary', () => {
     const withSim = disputeSummaryText(report, undefined, 'Acme', s);
     expect(without).not.toContain('different bills');
     expect(withSim).toContain('Same conversations, different bills');
-    expect(withSim).toContain('Intercom Fin rule would count 5, $4.95');
+    expect(withSim).toContain('Intercom Fin rule would count 6, $5.94');
     expect(withSim).toContain('Zendesk Verified: up to 3');
     expect(withSim).not.toMatch(/fraud|scam|overcharg/i);
   });

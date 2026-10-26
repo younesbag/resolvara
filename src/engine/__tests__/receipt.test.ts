@@ -232,6 +232,17 @@ describe('parsing a mapped receipt column', () => {
     const { conversations } = await parseFile(csv, { preset: 'generic', mapping: { ...mapping, actionReceipt: null } });
     expect(conversations.every((c) => c.actionReceipt === null)).toBe(true);
   });
+  it('auto-detects only the exact header, never a column that merely contains the word', async () => {
+    const auto =
+      'id,created,customer,billed,action_receipt_error\n' +
+      '1,2026-09-01T10:00:00Z,a@x.com,yes,timeout\n';
+    const { id, createdAt, customerKey, billed, billedValue } = mapping;
+    const { conversations } = await parseFile(auto, { preset: 'generic', mapping: { id, createdAt, customerKey, billed, billedValue } });
+    expect(conversations[0].actionReceipt).toBeNull();
+    const exact = auto.replace('action_receipt_error', 'Action Receipt');
+    const { conversations: c2 } = await parseFile(exact, { preset: 'generic', mapping: { id, createdAt, customerKey, billed, billedValue } });
+    expect(c2[0].actionReceipt).toBe(true);
+  });
   it('works as an override on a vendor preset', async () => {
     const { conversations } = await parseFile(csv, { preset: 'gorgias', mapping });
     expect(conversations.map((c) => c.actionReceipt)).toEqual([true, false, false, false, true]);

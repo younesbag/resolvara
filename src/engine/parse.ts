@@ -172,7 +172,9 @@ function buildPlan(preset: Preset, mapping: ColumnMapping | undefined, src: Sour
     if (cols[field] || explicit.has(field)) return;
     const cands = list[field] ?? [];
     if (!src.csv && resolveJsonField(src, field, cands, taken, cols, unseen)) return;
-    for (const pass of fuzzy ? [false, true] : [false]) {
+    // A receipt is positive evidence: never guess it from a column that only contains the word.
+    const allowFuzzy = fuzzy && field !== 'receipt';
+    for (const pass of allowFuzzy ? [false, true] : [false]) {
       for (const cand of cands) {
         const r = resolveCandidate(src, cand, pass, taken);
         if (r) {

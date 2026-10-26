@@ -10,7 +10,9 @@ describe('contract clause defaults', () => {
     expect(def).toHaveLength(5);
     expect(def[0]).toMatch(/^Vendor escalation: .*escalated, handoff or negative feedback\./);
     expect(def[1]).toMatch(/^Human reply: .*after the AI agent took part, including a courtesy reply\./);
-    expect(def[2]).toMatch(/^Reopened: .*reopen count above zero.*within the Judgement Window\./);
+    expect(def[2]).toMatch(/^Reopened: the conversation was reopened within the Judgement Window\./);
+    // Same rule as the engine: a timestamped reopen outside the window does not count; a bare count does.
+    expect(def[2]).toContain('Where the export gives no time for a reopen, a reopen count above zero counts');
     expect(def[3]).toMatch(/^Repeat contact: .*same end user opened another conversation/);
     expect(def[4]).toMatch(/^Negative rating: .*below 0\.4 on a scale of 0 to 1 \(a rating of 1 or 2 on a scale of 1 to 5\)/);
   });

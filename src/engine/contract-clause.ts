@@ -146,7 +146,7 @@ export function buildClauses(partial: Partial<ContractOptions> = {}, standardVer
     },
     {
       ref: "(c)",
-      text: `Reopened: the conversation has a reopen count above zero, or was reopened within the Judgement Window.`,
+      text: `Reopened: the conversation was reopened within the Judgement Window. Where the export gives no time for a reopen, a reopen count above zero counts as a reopen within the Judgement Window.`,
       sub: true,
     },
     {

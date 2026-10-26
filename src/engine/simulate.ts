@@ -12,8 +12,6 @@ const DAYS_PER_MONTH = 30.4375;
 export const LIST_PRICES = { fin: 0.99, gorgias: 1.0, front: 0.89, hubspot: 0.5 } as const;
 /** The `checkedAt` date of the vendor facts the rules below rely on. */
 export const CHECKED_AT = '2026-10-24';
-/** Fin's "customer came back" window. Intercom does not state one; third-party blogs say 24 hours. */
-export const FIN_COMEBACK_HOURS = 24;
 /** The window-free "3-day" rule used for the Zendesk upper bound (72 hours, as Zendesk's email end). */
 export const ZENDESK_WINDOW_HOURS = 72;
 
@@ -162,9 +160,12 @@ export function simulateBilling(
     const esc = escalated(c) || !claimed(c);
     const human = humanReplied(c);
     if (!esc) hubspot += 1;
+    // Fin: a teammate joining after Fin answered does not remove it (only the customer asking for
+    // help does, which shows as an escalation or a reopen). Intercom publishes no return window,
+    // so no time cutoff is used: any reopen of the conversation deducts it.
+    if (!esc && !(c.reopenCount !== null && c.reopenCount > 0) && !c.reopenedAt) fin += 1;
     if (!esc && !human) {
       noHuman += 1;
-      if (!cameBack(c, FIN_COMEBACK_HOURS * HOUR)) fin += 1;
       const reopened = c.reopenedAt
         ? c.reopenedAt.getTime() - c.createdAt.getTime() <= ZENDESK_WINDOW_HOURS * HOUR
         : c.reopenCount !== null && c.reopenCount > 0;
@@ -212,11 +213,11 @@ export function simulateBilling(
       'fin',
       'Intercom Fin',
       'Intercom',
-      'The AI marked it resolved, no escalation, no human reply, and the customer did not come back within 24 hours. Silence counts.',
+      'The AI marked it resolved, the customer did not ask for a person, and the conversation was not reopened. A teammate joining later does not remove it. Silence counts.',
       fin,
       prices.fin,
       'modelled',
-      `${PREFIX}Per Intercom docs, checked ${CHECKED_AT}, Fin deducts a resolution when the customer comes back seeking help. Intercom does not state the window; 24 hours comes from third-party blogs and is unconfirmed. A minimum monthly commitment applies to the real invoice.`,
+      `${PREFIX}Per Intercom docs, checked ${CHECKED_AT}, Fin deducts a resolution when the customer comes back seeking help, and a teammate who joins after Fin answered does not remove it. Intercom publishes no return window, so this row reads a reopen of the same conversation as coming back, with no time limit; a new conversation from the same customer is not counted as a return. A minimum monthly commitment applies to the real invoice.`,
     ),
     row(
       'gorgias',

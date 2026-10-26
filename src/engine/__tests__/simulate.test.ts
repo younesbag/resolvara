@@ -55,6 +55,7 @@ const count = (s: ReturnType<typeof simulateBilling>, id: string) => s.rows.find
 //  F  customer returns 12h later, billed         -> not Fin, not Zendesk, not strict; Gorgias/Front count it
 //  G  reopened once, billed                      -> not Zendesk, not strict; Fin/Gorgias count it
 //  H  clean, NOT billed                          -> counts everywhere a rule ignores billing
+//  U  state unknown, not billed                  -> no vendor rule counts it (judged = 9 with U); strict counts it (silent pass)
 const fixture = (): Conversation[] => [
   conv('A'),
   conv('B', { vendorState: 'confirmed' }),
@@ -68,15 +69,16 @@ const fixture = (): Conversation[] => [
   conv('H', { billed: false }),
   conv('I', { createdAt: at(2) }),
   conv('J', { customerKey: null }),
+  conv('U', { vendorState: 'unknown', billed: false }), // no resolution claimed: every vendor row excludes it
 ];
 
 describe('simulateBilling on a hand-built set', () => {
   const { report, s } = sim(fixture());
 
   it('uses the audit population', () => {
-    expect(report.judged).toBe(8);
+    expect(report.judged).toBe(9);
     expect(report.billedJudged).toBe(7);
-    expect(s.judged).toBe(8);
+    expect(s.judged).toBe(9);
   });
 
   it('counts each rule by hand', () => {
@@ -86,7 +88,7 @@ describe('simulateBilling on a hand-built set', () => {
     expect(count(s, 'front').billable).toBe(6);
     expect(count(s, 'hubspot').billable).toBe(7); // all but D
     expect(count(s, 'zendesk').billable).toBe(3); // A B H
-    expect(count(s, 'strict').billable).toBe(3); // A B H
+    expect(count(s, 'strict').billable).toBe(4); // A B H U
     expect(count(s, 'confirmed_only').billable).toBe(1); // B
   });
 
@@ -103,7 +105,7 @@ describe('simulateBilling on a hand-built set', () => {
     expect(count(s, 'gorgias').dollars).toBe(6);
     expect(count(s, 'front').dollars).toBeCloseTo(6 * 0.89, 10);
     expect(count(s, 'hubspot').dollars).toBe(3.5);
-    expect(count(s, 'strict').dollars).toBe(3);
+    expect(count(s, 'strict').dollars).toBe(4);
   });
 
   it('marks kinds and gives Zendesk no price', () => {
@@ -117,8 +119,8 @@ describe('simulateBilling on a hand-built set', () => {
   });
 
   it('shares divide by judged', () => {
-    expect(count(s, 'fin').share).toBeCloseTo(5 / 8, 10);
-    expect(count(s, 'actual').share).toBeCloseTo(7 / 8, 10);
+    expect(count(s, 'fin').share).toBeCloseTo(5 / 9, 10);
+    expect(count(s, 'actual').share).toBeCloseTo(7 / 9, 10);
   });
 
   it('splits the bill and the parts sum to billedJudged', () => {
@@ -179,6 +181,24 @@ describe('edge cases', () => {
     expect(count(s, 'fin').dollars).not.toBeNull();
   });
 
+  it('without any resolution-state data, billed or non-escalated AI conversations stand in', () => {
+    const noState = [
+      conv('N1', { vendorState: 'unknown', billed: false }),
+      conv('N2', { vendorState: 'unknown', billed: true }),
+      conv('N3', { vendorState: 'unknown', billed: false, humanReplied: true }),
+    ];
+    const { s } = sim(noState);
+    expect(count(s, 'fin').billable).toBe(2); // N1 N2; N3 has a human reply
+    expect(count(s, 'hubspot').billable).toBe(3); // human replies do not exclude HubSpot
+    expect(s.notes.join(' ')).toContain('no resolution-state column');
+    expect(sim(fixture()).s.notes).toEqual([]);
+  });
+
+  it('with state data, an unknown-state unbilled conversation is excluded but a billed one is kept', () => {
+    const { s } = sim([conv('S1'), conv('S2', { vendorState: 'unknown', billed: false }), conv('S3', { vendorState: 'unknown', billed: true })]);
+    expect(count(s, 'fin').billable).toBe(2); // S1 S3
+  });
+
   it('duplicate ids use the first row, like the audit', () => {
     const dup = [conv('A'), conv('A', { humanReplied: true })];
     const { s } = sim(dup);
@@ -197,9 +217,13 @@ describe('built-in sample data', () => {
     expect(n('strict')).toBe(report.strictPass + report.confirmedPass);
     expect(n('confirmed_only')).toBe(report.confirmedPass);
     expect(n('confirmed_only')).toBeLessThanOrEqual(n('strict'));
-    expect(n('strict')).toBeLessThanOrEqual(n('fin'));
+    // strict can exceed fin: it also passes silent conversations the AI never marked resolved.
     expect(n('hubspot')).toBeGreaterThanOrEqual(n('gorgias'));
     expect(n('gorgias')).toBe(n('front'));
+    const claimed = conversations.filter((c) => c.billed || ['assumed', 'confirmed', 'verified', 'contained', 'billed_unknown'].includes(c.vendorState));
+    const claimedIds = new Set(claimed.map((c) => c.id));
+    const claimedJudged = report.results.filter((r) => r.verdict !== 'pending_window' && r.verdict !== 'unverifiable' && claimedIds.has(r.id)).length;
+    for (const id of ['fin', 'gorgias', 'front', 'hubspot', 'zendesk']) expect(n(id)).toBeLessThanOrEqual(claimedJudged);
     const b = s.billSplit;
     expect(b.phantom + b.silenceOnly + b.positive).toBe(report.billedJudged);
     expect(b.phantom).toBe(report.phantom);

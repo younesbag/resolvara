@@ -58,9 +58,13 @@ export interface BillingSimulation {
   judgedDays: number | null;
   /** Multiply a total for this export by this to get a 30.4-day month. Null when under 7 days. */
   monthlyFactor: number | null;
+  /** Table-level notes, e.g. when the export has no resolution-state column. */
+  notes: string[];
 }
 
 const ESCALATED: ReadonlySet<VendorState> = new Set<VendorState>(['escalated', 'handoff', 'negative_feedback']);
+
+const CLAIMED: ReadonlySet<VendorState> = new Set<VendorState>(['assumed', 'confirmed', 'verified', 'contained', 'billed_unknown']);
 
 const PREFIX = "Modelled from the vendor's published rule using only your export's fields; not the vendor's own count. ";
 
@@ -108,6 +112,20 @@ export function simulateBilling(
     return lo < a.length && a[lo] - t <= ms;
   };
 
+  // Every vendor rule starts from "the AI marked it resolved". A billed row always counts as claimed.
+  // Without any resolution-state data (generic exports) every non-escalated AI conversation stands in.
+  let hasState = false;
+  for (const r of report.results) {
+    if (r.verdict === 'pending_window' || r.verdict === 'unverifiable') continue;
+    const st = byId.get(r.id)?.vendorState;
+    if (st !== undefined && st !== 'unknown' && st !== 'not_ai') {
+      hasState = true;
+      break;
+    }
+  }
+  const claimed = (c: Conversation) =>
+    c.billed || (hasState ? CLAIMED.has(c.vendorState) : !ESCALATED.has(c.vendorState));
+
   const humanReplied = (c: Conversation) => c.humanReplied === true || (countAgent && c.agentReplied === true);
   const escalated = (c: Conversation) => ESCALATED.has(c.vendorState);
 
@@ -139,7 +157,7 @@ export function simulateBilling(
       else if (isStrict) silenceOnly += 1;
     }
 
-    const esc = escalated(c);
+    const esc = escalated(c) || !claimed(c);
     const human = humanReplied(c);
     if (!esc) hubspot += 1;
     if (!esc && !human) {
@@ -192,7 +210,7 @@ export function simulateBilling(
       'fin',
       'Intercom Fin',
       'Intercom',
-      'AI involved, no escalation, no human reply, and the customer did not come back within 24 hours. Silence counts.',
+      'The AI marked it resolved, no escalation, no human reply, and the customer did not come back within 24 hours. Silence counts.',
       fin,
       prices.fin,
       'modelled',
@@ -202,7 +220,7 @@ export function simulateBilling(
       'gorgias',
       'Gorgias AI Agent',
       'Gorgias',
-      'No human reply and no escalation. A repeat contact does not remove it. Silence counts.',
+      'The AI marked it resolved, with no human reply and no escalation. A repeat contact does not remove it. Silence counts.',
       noHuman,
       prices.gorgias,
       'modelled',
@@ -212,7 +230,7 @@ export function simulateBilling(
       'front',
       'Front',
       'Front',
-      'Same signals as Gorgias: no teammate follow-up and no escalation. Only the price differs.',
+      'Same signals as Gorgias: the AI marked it resolved, no teammate follow-up, no escalation. Only the price differs.',
       noHuman,
       prices.front,
       'modelled',
@@ -222,7 +240,7 @@ export function simulateBilling(
       'hubspot',
       'HubSpot Customer Agent',
       'HubSpot',
-      'Counts unless the visitor was handed to a human. A human who picks it up later does not remove it.',
+      'The AI marked it resolved and the visitor was not handed to a human. A human who picks it up later does not remove it.',
       hubspot,
       prices.hubspot,
       'modelled',
@@ -232,7 +250,7 @@ export function simulateBilling(
       'zendesk',
       'Zendesk Verified',
       'Zendesk',
-      'Passes every condition an export can show: no escalation, no human reply, no reopen, no repeat contact within 3 days.',
+      'The AI marked it resolved and it passes every condition an export can show: no escalation, no human reply, no reopen, no repeat contact within 3 days.',
       zendesk,
       null,
       'upper_bound',
@@ -275,7 +293,10 @@ export function simulateBilling(
   const judgedDays = Number.isFinite(spanDays) && spanDays > 0 ? spanDays : null;
   const monthlyFactor = judgedDays !== null && judgedDays >= 7 ? DAYS_PER_MONTH / judgedDays : null;
 
-  return { judged, rows, billSplit, judgedDays, monthlyFactor };
+  const notes = hasState || judged === 0
+    ? []
+    : ['Your export has no resolution-state column, so every non-escalated AI conversation is treated as an answered one.'];
+  return { judged, rows, billSplit, judgedDays, monthlyFactor, notes };
 }
 
 /** The headline sentence for the bill split, or null when nothing billed was judged. */

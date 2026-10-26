@@ -135,6 +135,12 @@ export function BillComparison({
         </table>
       </div>
 
+      {simulation.notes.map((n) => (
+        <p key={n} className="mt-4 max-w-[78ch] text-sm text-ink-2">
+          {n}
+        </p>
+      ))}
+
       <ol className="mt-5 max-w-[78ch] space-y-2 text-sm text-ink-3">
         {notes.map((r, i) => (
           <li key={r.id} id={`bills-note-${i + 1}`} className="flex gap-2">

@@ -5,14 +5,34 @@ import {
   ArrowCounterClockwise,
   Copy,
   DownloadSimple,
+  EnvelopeSimple,
+  FileText,
   HandHeart,
   ShareNetwork,
 } from "@phosphor-icons/react";
 import type { AuditReport } from "@/engine";
 import { Modal } from "../modal";
 import { track } from "../track";
+import { buildFinanceReport } from "./finance-report";
 import { downloadBlob, stamp } from "./format";
 import { renderShareCard } from "./share-card";
+
+// Opens the visitor's own mail app. Nothing from the audit is attached; they choose what to share.
+const DISPUTE_HELP_MAILTO =
+  "mailto:younesbag@moshid.com?subject=" +
+  encodeURIComponent("Help with an AI resolution dispute") +
+  "&body=" +
+  encodeURIComponent(
+    [
+      "Hi Younes,",
+      "",
+      "I ran Resolvara on our export and would like help taking the result to our vendor.",
+      "",
+      "Vendor:",
+      "Rough monthly AI resolutions:",
+      "What we need:",
+    ].join("\n"),
+  );
 
 export function ActionsBar({
   report,
@@ -35,7 +55,7 @@ export function ActionsBar({
   onContribute: () => void;
   onReset: () => void;
 }) {
-  const [busy, setBusy] = useState<null | "csv" | "card">(null);
+  const [busy, setBusy] = useState<null | "csv" | "card" | "report">(null);
   const [status, setStatus] = useState("");
   const [manual, setManual] = useState(false);
 
@@ -78,6 +98,20 @@ export function ActionsBar({
     }
   }
 
+  async function financeReport() {
+    setBusy("report");
+    try {
+      const html = await buildFinanceReport({ report, vendorName });
+      downloadBlob(new Blob([html], { type: "text/html;charset=utf-8" }), `resolvara-finance-report-${stamp()}.html`);
+      say("Finance report downloaded. Open it and print to PDF.");
+      track("finance_report");
+    } catch {
+      say("Could not build the report");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function card() {
     setBusy("card");
     try {
@@ -97,6 +131,10 @@ export function ActionsBar({
         <button type="button" className="btn btn-primary" onClick={csv} disabled={busy !== null || !hasPhantom}>
           <DownloadSimple size={18} weight="bold" aria-hidden />
           Download dispute CSV
+        </button>
+        <button type="button" className="btn btn-secondary" onClick={financeReport} disabled={busy !== null}>
+          <FileText size={18} weight="bold" aria-hidden />
+          Finance report
         </button>
         <button type="button" className="btn btn-secondary" onClick={copy}>
           <Copy size={18} weight="bold" aria-hidden />
@@ -123,6 +161,18 @@ export function ActionsBar({
       </div>
       <p className="mt-3 min-h-5 text-sm text-ink-2" role="status" aria-live="polite">
         {status}
+      </p>
+      <p className="mt-2 flex flex-wrap items-center gap-x-2 text-sm text-ink-2">
+        <EnvelopeSimple size={16} weight="bold" aria-hidden />
+        Taking this to your vendor?
+        <a
+          href={DISPUTE_HELP_MAILTO}
+          onClick={() => track("dispute_help")}
+          className="font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink"
+        >
+          Ask for help with the dispute
+        </a>
+        <span>(email, no data needed)</span>
       </p>
       <Modal
         open={manual}

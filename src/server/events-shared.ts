@@ -8,6 +8,8 @@ export const EVENT_NAMES = [
   "audit_done",
   "csv_downloaded",
   "audit_error",
+  "finance_report",
+  "dispute_help",
 ] as const;
 export type EventName = (typeof EVENT_NAMES)[number];
 

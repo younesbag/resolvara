@@ -20,22 +20,11 @@ export default function OpengraphImage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 20, fontSize: 40, fontWeight: 700 }}>
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              border: "4px solid #f5f6f7",
-              borderRadius: 4,
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "center",
-              gap: 8,
-              padding: "0 8px",
-            }}
-          >
-            <div style={{ height: 4, width: 28, background: "#f5f6f7" }} />
-            <div style={{ height: 5, width: 14, background: "#ff7d5c" }} />
-          </div>
+          <svg width="56" height="56" viewBox="0 0 64 64">
+            <circle cx="20" cy="20" r="10" fill="none" stroke="#f5f6f7" strokeWidth="6" />
+            <path d="M48 10 L16 54" stroke="#f5f6f7" strokeWidth="6" strokeLinecap="round" />
+            <circle cx="46" cy="46" r="7" fill="#ff7d5c" />
+          </svg>
           Resolvara
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>

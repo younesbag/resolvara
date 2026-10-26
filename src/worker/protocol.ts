@@ -3,6 +3,7 @@
 import type {
   AuditOptions,
   AuditReport,
+  BillingSimulation,
   ColumnMapping,
   Contribution,
   Preset,
@@ -39,6 +40,7 @@ export type WorkerOutput =
       reqId: number;
       report: AuditReport; // results are trimmed to phantom rows only
       summary: string;
+      simulation: BillingSimulation;
       payload: Contribution | null; // null when the window is not a whole number of days
     }
   | { type: "dispute"; reqId: number; csv: string }

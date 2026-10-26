@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   AuditOptions,
   AuditReport,
+  BillingSimulation,
   ColumnMapping,
   Contribution,
   Preset,
@@ -33,6 +34,7 @@ export interface AuditorState {
   vendorName: string;
   report: AuditReport | null;
   summary: string;
+  simulation: BillingSimulation | null;
   payload: Contribution | null;
   refreshing: boolean;
   isSample: boolean; // sample data never goes to the community benchmark
@@ -65,6 +67,7 @@ const INITIAL: AuditorState = {
   vendorName: "the vendor",
   report: null,
   summary: "",
+  simulation: null,
   payload: null,
   refreshing: false,
   isSample: false,
@@ -178,6 +181,7 @@ export function useAuditor() {
             phase: "results",
             report: m.report,
             summary: m.summary,
+            simulation: m.simulation,
             payload: m.payload,
             refreshing: false,
             error: null,

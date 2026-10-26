@@ -5,6 +5,7 @@ import { Info } from "@phosphor-icons/react";
 import type { AuditorState } from "./use-auditor";
 import type { useAuditor } from "./use-auditor";
 import { ActionsBar } from "./actions-bar";
+import { BillComparison } from "./bill-comparison";
 import { BigNumbers } from "./big-numbers";
 import { ContributeDialog } from "./contribute-dialog";
 import { dateShort, int, pct } from "./format";
@@ -93,6 +94,7 @@ export function Results({
       ) : (
         <>
           <BigNumbers report={report} opts={state.opts} />
+          {state.simulation && <BillComparison simulation={state.simulation} sample={state.isSample} />}
           <ActionsBar
             report={report}
             summary={state.summary}

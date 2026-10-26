@@ -13,6 +13,7 @@ import {
   parseFile,
   peekFile,
   sampleDataset,
+  simulateBilling,
   toDisputeCsv,
   type AuditOptions,
   type AuditReport,
@@ -145,11 +146,13 @@ async function handle(msg: WorkerInput, gen: number): Promise<void> {
       } catch {
         payload = null; // a fractional window cannot be filed in the benchmark
       }
+      const simulation = simulateBilling(convs, fullReport);
       post({
         type: "audited",
         reqId: msg.reqId,
         report: trimReport(fullReport),
-        summary: disputeSummaryText(fullReport, msg.opts, msg.vendorName),
+        summary: disputeSummaryText(fullReport, msg.opts, msg.vendorName, simulation),
+        simulation,
         payload,
       });
       return;

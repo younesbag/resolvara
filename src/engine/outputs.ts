@@ -1,5 +1,6 @@
 // Outputs: dispute CSV, summary + email text, anonymous contribution payload.
 import { SENSITIVITY_WINDOWS } from './audit';
+import { billSplitSentence, type BillingSimulation } from './simulate';
 import type {
   AuditOptions,
   AuditReport,
@@ -64,11 +65,40 @@ function money(x: number): string {
 }
 const day = (d: Date) => (Number.isNaN(d.getTime()) ? 'unknown' : d.toISOString().slice(0, 10));
 
+/** One short paragraph: what each published billing rule would count for the same conversations. */
+function simulationLines(sim: BillingSimulation | undefined): string[] {
+  if (!sim || sim.judged <= 0) return [];
+  const line = (id: string, text: (n: number, d: string | null) => string): string[] => {
+    const r = sim.rows.find((x) => x.id === id);
+    return r ? [`  - ${text(r.billable, r.dollars === null ? null : money(r.dollars))}`] : [];
+  };
+  const out = [
+    ``,
+    `Same conversations, different bills (modelled from each vendor's published rule using only this export's fields; not the vendor's own count; list prices):`,
+    ...line('actual', (n) => `Billed in your export: ${n}`),
+    ...line('fin', (n, d) => `Intercom Fin rule would count ${n}${d ? `, ${d}` : ''}`),
+    ...line('gorgias', (n, d) => `Gorgias rule would count ${n}${d ? `, ${d}` : ''}`),
+    ...line('front', (n, d) => `Front rule would count ${n}${d ? `, ${d}` : ''}`),
+    ...line('hubspot', (n, d) => `HubSpot rule would count ${n}${d ? `, ${d}` : ''}`),
+    ...line('zendesk', (n) => `Zendesk Verified: up to ${n} pass every condition an export can show (upper bound; Zendesk also runs an LLM review)`),
+    ...line('strict', (n) => `Strict Resolution Standard: ${n}`),
+    ...line('confirmed_only', (n) => `Only with positive evidence: ${n}`),
+  ];
+  const sentence = billSplitSentence(sim.billSplit);
+  if (sentence) out.push(`  ${sentence}`);
+  return out;
+}
+
 /**
  * The parameters printed here are the ones the audit used (`report.params`), not the caller's raw
  * options: the audit replaces an invalid window or threshold. `opts` is kept for older callers.
  */
-export function disputeSummaryText(report: AuditReport, opts: AuditOptions | undefined, vendorName: string): string {
+export function disputeSummaryText(
+  report: AuditReport,
+  opts: AuditOptions | undefined,
+  vendorName: string,
+  simulation?: BillingSimulation,
+): string {
   void opts;
   const vendor = vendorName.trim() || 'the vendor';
   const { windowDays: w, negativeCsatThreshold, sameTopicOnly, countAgentReplies } = report.params;
@@ -104,6 +134,7 @@ export function disputeSummaryText(report: AuditReport, opts: AuditOptions | und
       const unit = d === 1 ? 'day' : 'days';
       return s ? `  - ${d} ${unit}: ${s.phantom} phantom, overall strict rate ${pct(s.strictRate)}` : `  - ${d} ${unit}: n/a`;
     }),
+    ...simulationLines(simulation),
     ``,
     `Read this as evidence, not as a finding. Repeat contact can be a different issue, and a conversation can be billed correctly under the contract and still fail the Standard.`,
     ``,

@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/config/seo";
 import { CalculatorClient } from "@/components/calculator-client";
 import { PageShell } from "@/components/page-shell";
 
-export const metadata: Metadata = {
-  title: "What phantom resolutions cost",
-  description:
-    "Estimate what billed-but-not-strictly-resolved conversations cost at your volume and price. Your own assumptions, no data upload.",
-  alternates: { canonical: "/calculator" },
-};
+export const metadata: Metadata = pageMeta(
+  "What phantom AI resolutions cost: a per-resolution pricing calculator",
+  "Estimate what billed but not strictly resolved AI agent conversations cost at your volume and price per resolution. Your own assumptions, no data upload.",
+  "/calculator",
+);
 
 export default function CalculatorPage() {
   return (

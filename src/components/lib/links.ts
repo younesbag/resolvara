@@ -16,6 +16,7 @@ export const FOOTER_LINKS = [
   { href: "/definitions", label: "Vendor definitions" },
   { href: "/calculator", label: "Calculator" },
   { href: "/benchmark", label: "Benchmark" },
+  { href: "/faq", label: "FAQ" },
   { href: "/privacy", label: "Privacy" },
   { href: "/about", label: "About" },
 ] as const;

@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/config/seo";
 import { PageShell } from "@/components/page-shell";
 import { GITHUB_URL } from "@/components/lib/links";
 
-export const metadata: Metadata = {
-  title: "Privacy",
-  description:
-    "Exactly what runs where: your file stays in your browser, the optional contribution sends aggregates only, and you can verify it in DevTools.",
-  alternates: { canonical: "/privacy" },
-};
+export const metadata: Metadata = pageMeta(
+  "Privacy",
+  "Exactly what runs where: your file stays in your browser, the optional contribution sends aggregates only, and you can verify it in DevTools.",
+  "/privacy",
+);
 
 export default function PrivacyPage() {
   return (

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/config/seo";
 import Link from "next/link";
 import { pct } from "@/components/auditor/format";
 import { CONTRIBUTION_VENDORS } from "@/engine";
@@ -8,12 +9,19 @@ import { PageShell } from "@/components/page-shell";
 
 export const revalidate = 3600;
 
-export const metadata: Metadata = {
-  title: "Community benchmark",
-  description:
-    "Opt-in, anonymous aggregates of strict resolution rates by helpdesk. Nothing is shown until 30 contributions are in.",
-  alternates: { canonical: "/benchmark" },
-};
+// Indexed only once a group has enough contributions to show rates; until then the page is a waiting list.
+export async function generateMetadata(): Promise<Metadata> {
+  const rows = await loadBenchmark();
+  const published = (rows ?? []).some((r) => r.n >= BENCHMARK_MIN_N);
+  return {
+    ...pageMeta(
+      "Community benchmark of strict AI resolution rates",
+      "Opt-in, anonymous aggregates of strict resolution rates by helpdesk. Nothing is shown until 30 contributions are in.",
+      "/benchmark",
+    ),
+    ...(published ? {} : { robots: { index: false, follow: true } }),
+  };
+}
 
 export default async function BenchmarkPage() {
   const [rows, vendors] = await Promise.all([loadBenchmark(), loadVendors()]);

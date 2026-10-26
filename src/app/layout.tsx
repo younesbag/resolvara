@@ -30,18 +30,8 @@ export const metadata: Metadata = {
   },
   description,
   applicationName: "Resolvara",
-  openGraph: {
-    type: "website",
-    siteName: "Resolvara",
-    title: "Resolvara: audit your AI agent's billed resolutions",
-    description,
-    url: "/",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Resolvara: audit your AI agent's billed resolutions",
-    description,
-  },
+  openGraph: { type: "website", siteName: "Resolvara", description },
+  twitter: { card: "summary_large_image", description },
 };
 
 export const viewport: Viewport = {

@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/config/seo";
 import Link from "next/link";
 import { PageShell } from "@/components/page-shell";
 import { GITHUB_URL } from "@/components/lib/links";
 
-export const metadata: Metadata = {
-  title: "About",
-  description:
-    "Why Resolvara exists, what it will not do, and how to challenge a number or correct a vendor fact.",
-  alternates: { canonical: "/about" },
-};
+export const metadata: Metadata = pageMeta(
+  "About",
+  "Why Resolvara exists, what it will not do, and how to challenge a number or correct a vendor fact. Independent and open source, not affiliated with any vendor.",
+  "/about",
+);
 
 export default function AboutPage() {
   return (

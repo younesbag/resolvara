@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
+import { pageMeta, article, graph } from "@/config/seo";
 import { extractHeadings, Markdown } from "@/components/markdown";
+import { JsonLd } from "@/components/json-ld";
 import { loadStandard } from "@/components/lib/content";
+import { siteConfig } from "@/config/site";
 
-export const metadata: Metadata = {
-  title: "The Strict Resolution Standard",
-  description:
-    "An open, versioned test for whether an AI agent's billed resolution was real: five fail signals, a pending window, and adjustable parameters.",
-  alternates: { canonical: "/standard" },
-};
+export const metadata: Metadata = pageMeta(
+  "The Strict Resolution Standard: when is an AI resolution real?",
+  "An open, versioned test for whether an AI support agent's billed resolution was real: five fail signals (repeat contact, reopen, human reply, negative CSAT, escalation), a pending window and adjustable parameters. CC BY 4.0.",
+  "/standard",
+);
 
 const FALLBACK = `# The Strict Resolution Standard v0.1
 
@@ -47,6 +49,18 @@ export default async function StandardPage() {
           </nav>
         </aside>
         <article className="min-w-0 rise">
+          <JsonLd
+            data={graph({
+              ...article({
+                headline: `The Strict Resolution Standard v${siteConfig.standardVersion}`,
+                description: "An open test for whether an AI support agent's billed resolution was real.",
+                path: "/standard",
+              }),
+              "@type": "TechArticle",
+              version: siteConfig.standardVersion,
+              license: "https://creativecommons.org/licenses/by/4.0/",
+            })}
+          />
           <Markdown source={md} />
         </article>
       </div>

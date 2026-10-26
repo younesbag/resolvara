@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
+import { pageMeta, article, graph } from "@/config/seo";
 import Link from "next/link";
 import { ArrowRight } from "@phosphor-icons/react/dist/ssr";
+import { JsonLd } from "@/components/json-ld";
+import { siteConfig } from "@/config/site";
 import { PageShell } from "@/components/page-shell";
 import { loadVendors, type Vendor } from "@/components/lib/content";
 
-export const metadata: Metadata = {
-  title: "Vendor definitions",
-  description:
-    "How AI support vendors define and bill a resolution, with the price, the silence rule, how to export, and a source link and check date for every fact.",
-  alternates: { canonical: "/definitions" },
-};
+export const metadata: Metadata = pageMeta(
+  "AI support agent pricing per resolution: how each vendor defines and bills it",
+  "Intercom Fin, Zendesk, Ada, Gorgias, Salesforce Agentforce and more side by side: price per resolution, whether silence counts as resolved, how to export, with a source and check date for every fact.",
+  "/definitions",
+);
 
 function Silence({ v }: { v: Vendor }) {
   if (v.billsAssumedResolutions === true) return <span className="font-medium">Yes</span>;
@@ -86,7 +88,7 @@ export default async function DefinitionsPage() {
   return (
     <PageShell
       wide
-      title="How vendors define a resolution"
+      title="How AI support vendors define and bill a resolution"
       intro={
         <p>
           Each vendor writes its own rule for what it bills. Here they are side by side, from the
@@ -95,6 +97,26 @@ export default async function DefinitionsPage() {
         </p>
       }
     >
+      <JsonLd
+        data={graph(
+          article({
+            headline: "How AI support vendors define and bill a resolution",
+            description: "Per-resolution pricing and resolution definitions of AI support agents, with sources.",
+            path: "/definitions",
+            dateModified: vendors.map((v) => v.checkedAt).sort().at(-1),
+            citation: vendors.flatMap((v) => v.sources.map((s) => s.url)),
+          }),
+          {
+            "@type": "ItemList",
+            itemListElement: vendors.map((v, i) => ({
+              "@type": "ListItem",
+              position: i + 1,
+              name: v.name,
+              url: `${siteConfig.url}/vendors/${v.slug}`,
+            })),
+          },
+        )}
+      />
       {vendors.length === 0 ? (
         <p className="rounded-[var(--radius)] bg-surface-2 p-6 text-ink-2">
           The vendor index is being compiled. Check back shortly.

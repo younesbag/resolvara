@@ -3,7 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowUpRight } from "@phosphor-icons/react/dist/ssr";
 import { Markdown } from "@/components/markdown";
+import { JsonLd } from "@/components/json-ld";
 import { loadVendor, loadVendorGuide, loadVendors } from "@/components/lib/content";
+import { article, breadcrumbs, graph, pageMeta } from "@/config/seo";
 
 export const dynamicParams = false;
 
@@ -20,11 +22,11 @@ export async function generateMetadata({
   const { slug } = await params;
   const v = await loadVendor(slug);
   if (!v) return {};
-  return {
-    title: `${v.name}: how a resolution is defined and billed`,
-    description: `${v.name} bills ${v.billingUnit}. See its definition of a resolution, how to export your data, and the sources, checked ${v.checkedAt}.`,
-    alternates: { canonical: `/vendors/${v.slug}` },
-  };
+  return pageMeta(
+    `${v.name} pricing: how a resolution is defined and billed`,
+    `${v.name} bills ${v.billingUnit}${v.price ? ` (${v.price})` : ""}. Its definition of a resolution, whether silence counts, how to export your data, and sources checked ${v.checkedAt}.`,
+    `/vendors/${v.slug}`,
+  );
 }
 
 // The guide files start with a title and end with a plain "Sources" list; the page has
@@ -58,9 +60,25 @@ export default async function VendorPage({ params }: { params: Promise<{ slug: s
           Vendor definitions
         </Link>
       </nav>
+      <JsonLd
+        data={graph(
+          article({
+            headline: `${v.name}: how a resolution is defined and billed`,
+            description: `${v.name} bills ${v.billingUnit}. Definition of a resolution, export path and sources.`,
+            path: `/vendors/${v.slug}`,
+            dateModified: v.checkedAt,
+            about: v.name,
+            citation: v.sources.map((s) => s.url),
+          }),
+          breadcrumbs([
+            { name: "Vendor definitions", path: "/definitions" },
+            { name: v.name, path: `/vendors/${v.slug}` },
+          ]),
+        )}
+      />
       <header className="rise mt-4">
         <h1 className="max-w-[22ch] text-4xl font-semibold leading-[1.05] tracking-[-0.03em] sm:text-5xl">
-          {v.name}
+          {v.name}: how a resolution is billed
         </h1>
         <p className="mt-4 max-w-[60ch] text-lg text-ink-2">
           How {v.name} defines a resolution, what it bills, and how to audit your own export.

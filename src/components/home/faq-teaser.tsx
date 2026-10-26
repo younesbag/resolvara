@@ -22,8 +22,10 @@ export const FALLBACK_FAQ: FaqItem[] = [
   },
 ];
 
+export const FAQ_TEASER_COUNT = 5;
+
 export function FaqTeaser({ items }: { items: FaqItem[] }) {
-  const list = (items.length > 0 ? items : FALLBACK_FAQ).slice(0, 5);
+  const list = (items.length > 0 ? items : FALLBACK_FAQ).slice(0, FAQ_TEASER_COUNT);
   return (
     <section aria-labelledby="faq-h" className="border-t border-line">
       <div className="mx-auto w-full max-w-3xl px-4 py-20 sm:px-6 lg:py-24">
@@ -49,7 +51,11 @@ export function FaqTeaser({ items }: { items: FaqItem[] }) {
           ))}
         </div>
         <p className="mt-6 text-sm text-ink-2">
-          The full rules and their known limits are in{" "}
+          More answers on{" "}
+          <Link href="/faq" className="font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+            the FAQ page
+          </Link>
+          . The full rules and their known limits are in{" "}
           <Link href="/standard" className="font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
             the Standard
           </Link>

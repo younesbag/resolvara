@@ -16,6 +16,6 @@ Under these terms:
 
 The full legal text is at https://creativecommons.org/licenses/by/4.0/legalcode and the human-readable summary is at https://creativecommons.org/licenses/by/4.0/.
 
-Suggested attribution: "The Strict Resolution Standard v0.1, by Resolvara contributors, licensed under CC BY 4.0."
+Suggested attribution: "The Strict Resolution Standard v0.2, by Resolvara contributors, licensed under CC BY 4.0."
 
 Vendor names, product names and quoted vendor text remain the property of their owners; short quotations are included with source links for identification and commentary. The Resolvara software is licensed separately under the MIT licence (see `LICENSE`).

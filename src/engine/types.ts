@@ -31,6 +31,13 @@ export interface Conversation {
   /** When the conversation was reopened, if the export has it. Judged against the window; else the count is used. */
   reopenedAt?: Date | null;
   csat: number | null; // csat normalised 0..1 (null if absent)
+  /**
+   * Action receipt (Standard 0.2): the export records that the AI's action took effect in a system
+   * of record (refund id, order update, booking id). true = a receipt is present, false = the mapped
+   * column is empty or a falsy token, null or absent = unknown (no receipt column). Positive evidence
+   * only: it never overrides a fail signal and never replaces the customer key.
+   */
+  actionReceipt?: boolean | null;
   channel: string | null;
   topicText: string | null; // topicText only kept in memory, optional
 }
@@ -83,8 +90,24 @@ export interface ConvResult {
   evidence: string[];
 }
 
+/** The versions of the Standard this code can read. Reports are always written with the current one. */
+export const STANDARD_VERSIONS = ['0.1', '0.2'] as const;
+export type StandardVersion = (typeof STANDARD_VERSIONS)[number];
+export const CURRENT_STANDARD_VERSION = '0.2' as const satisfies StandardVersion;
+
+/**
+ * Positive evidence behind the confirmed passes, counted per source. A conversation with several
+ * sources is counted once in `confirmedPass` but once in EACH source here, so the three numbers can
+ * add up to more than `confirmedPass`.
+ */
+export interface ConfirmedBy {
+  vendorConfirmed: number;
+  positiveRating: number;
+  actionReceipt: number;
+}
+
 export interface AuditReport {
-  standardVersion: '0.1';
+  standardVersion: typeof CURRENT_STANDARD_VERSION;
   preset: Preset;
   rowsRead: number; // conversations handed to the audit
   rowsSkipped: number; // duplicate ids and rows without a usable date
@@ -104,6 +127,8 @@ export interface AuditReport {
   verifiable: number; // same as `judged`, kept for older callers
   strictPass: number;
   confirmedPass: number;
+  /** Sources of positive evidence among the confirmed passes. Sources can overlap (see ConfirmedBy). */
+  confirmedBy: ConfirmedBy;
   phantom: number;
   failUnbilled: number; // fail signal, not billed
   pending: number;
@@ -142,7 +167,7 @@ export type ContributionVendor = (typeof CONTRIBUTION_VENDORS)[number];
 
 // Aggregates only, no ids/text. Shape per SPEC "Contribution API".
 export interface Contribution {
-  standardVersion: '0.1';
+  standardVersion: StandardVersion;
   preset: Preset;
   vendor: ContributionVendor;
   periodDays: number;

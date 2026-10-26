@@ -103,3 +103,14 @@ describe("aggregateContributions", () => {
     expect(row.medianStrictRate).toBeCloseTo(0.4, 10);
   });
 });
+
+describe("contributionSchema versions", () => {
+  it("accepts both 0.1 (old stored contributions) and 0.2", () => {
+    expect(contributionSchema.safeParse({ ...base, standardVersion: "0.1" }).success).toBe(true);
+    expect(contributionSchema.safeParse({ ...base, standardVersion: "0.2" }).success).toBe(true);
+  });
+  it("rejects any other version", () => {
+    expect(contributionSchema.safeParse({ ...base, standardVersion: "0.3" }).success).toBe(false);
+    expect(contributionSchema.safeParse({ ...base, standardVersion: "1" }).success).toBe(false);
+  });
+});

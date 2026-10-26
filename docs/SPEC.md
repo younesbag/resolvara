@@ -1,6 +1,6 @@
 # Resolvara — v1 technical spec
 
-Product name: **Resolvara** ("Audit your AI agent's billed resolutions"). The open definition is "**The Strict Resolution Standard**" (v0.1). Domain not purchased yet → deploy on `*.vercel.app`; keep the site URL in one config constant. Read `docs/PLAN.md` (why/what) and `docs/research/vendor-facts.md` (sourced vendor facts — never hard-code anything it marks unconfirmed).
+Product name: **Resolvara** ("Audit your AI agent's billed resolutions"). The open definition is "**The Strict Resolution Standard**" (v0.2). Domain not purchased yet → deploy on `*.vercel.app`; keep the site URL in one config constant. Read `docs/PLAN.md` (why/what) and `docs/research/vendor-facts.md` (sourced vendor facts — never hard-code anything it marks unconfirmed).
 
 ## Stack
 Next.js 15 App Router, TypeScript strict, Tailwind v4, pnpm or npm, vitest (engine), Papaparse, no UI kit required. Static pages except `POST /api/contribute` and `/benchmark` (server, revalidate 1h). Vercel Web Analytics (`@vercel/analytics`). Strict CSP via `next.config` headers: `default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; script-src 'self' 'unsafe-inline'` (adjust minimally; no third-party scripts on `/`).
@@ -38,7 +38,7 @@ export type Verdict = 'strict_pass' | 'confirmed_pass' | 'phantom' | 'fail_unbil
 export type Reason = 'human_handoff' | 'reopened' | 'repeat_contact' | 'negative_csat' | 'vendor_escalated';
 export interface ConvResult { id: string; verdict: Verdict; reasons: Reason[]; evidence: string[]; }
 export interface AuditReport {
-  standardVersion: '0.1'; preset: Preset; rowsRead: number; rowsSkipped: number; warnings: string[];
+  standardVersion: '0.2'; preset: Preset; rowsRead: number; rowsSkipped: number; warnings: string[];
   params: AuditParams;           // effective options; the summary and the contribution read these
   period: { start: Date; end: Date };
   aiConversations: number;       // all AI conversations (after dedupe by id)
@@ -47,7 +47,7 @@ export interface AuditReport {
   billedJudged: number;          // billed conversations inside `judged` (phantom + billed passes)
   billedRate: number;            // billedJudged / judged
   verifiable: number;            // alias of judged
-  strictPass: number; confirmedPass: number; phantom: number; failUnbilled: number; pending: number; unverifiable: number;
+  strictPass: number; confirmedPass: number; confirmedBy: { vendorConfirmed: number; positiveRating: number; actionReceipt: number } /* per-source counts of positive evidence; sources overlap, a conversation counts once in confirmedPass and once per source here */; phantom: number; failUnbilled: number; pending: number; unverifiable: number;
   strictRate: number;            // (strictPass+confirmedPass) / judged
   phantomShareOfBilled: number;  // phantom / billedJudged
   dollarsAtRisk: number;         // phantom * pricePerResolution (price clamped to >= 0)
@@ -66,7 +66,7 @@ export function contributionPayload(report: AuditReport, opts: AuditOptions, ven
 export function sampleDataset(preset: Preset, seed?: number): string; // realistic synthetic CSV/JSONL for "Try sample data"
 ```
 
-## Classification rules (Strict Resolution Standard v0.1)
+## Classification rules (Strict Resolution Standard v0.2)
 Applies to every conversation with `aiInvolved = true`. Let W = windowDays. Conversations are deduplicated by id first (first row wins).
 1. If `createdAt > exportEnd − W` → `pending_window` (cannot verify yet; excluded from all rates, shown separately). Nothing else is evaluated.
 2. Fail reasons: any that fire are recorded, each with an evidence string:
@@ -79,7 +79,7 @@ Applies to every conversation with `aiInvolved = true`. Let W = windowDays. Conv
    - any fail reason and `billed` → `phantom` ("billed but not strictly resolved"; never "fraud");
    - any fail reason and not billed → `fail_unbilled` (counts as not strict, never phantom, never dollars);
    - no fail reason and `customerKey === null` → `unverifiable` (the repeat-contact test cannot run, so a pass cannot be shown; another signal being present does not change that);
-   - no fail reason and (`vendorState === 'confirmed'` or `csat >= 0.75`, an explicit positive rating) → `confirmed_pass`;
+   - no fail reason and positive evidence (`vendorState === 'confirmed'`, or `csat >= 0.75` (an explicit positive rating), or `actionReceipt === true` (v0.2: the export records that the AI's action took effect in a system of record)) → `confirmed_pass`. A receipt is positive evidence only: it never overrides a fail signal (checked earlier) and never replaces the customer key (a receipt without a customer key is still `unverifiable`). `actionReceipt` is true when the mapped receipt column is non-empty and not a falsy token (empty, 0, false, no, none, null, n/a; trimmed, any case); null when no column is mapped. No vendor preset has a receipt column; it comes from the generic mapper or a mapper override;
    - otherwise `strict_pass`.
 4. Rates share one population, `judged = AI conversations − pending − unverifiable` (unverifiable conversations are unjudged, not failed): `strictRate = (strictPass+confirmedPass)/judged`, `billedRate = billedJudged/judged`, `phantomShareOfBilled = phantom/billedJudged` where `billedJudged` counts billed conversations inside `judged`. All rates are 0 when the denominator is 0.
 5. `byReason` counts reasons over phantom conversations only. `byReasonShare` (contribution) is `byReason[r] / phantom`: the share of phantom conversations carrying that reason (shares can add up to more than 1).
@@ -98,10 +98,10 @@ Customer ids and emails are replaced by a salted SHA-256 digest (random salt per
 ## UI (Resolvara)
 Design: an audit-report / ledger feel — precise, calm, trustworthy; tabular numerals; verdict "stamps" (Strict ✓ / Phantom); avoid generic AI-SaaS gradients and the clichés listed in the design skill. Load skill `design-taste-frontend` before designing. Light + dark. Mobile works (results readable at 390px).
 Pages: `/` (hero + drop zone + Try sample data + live results in place; How it works; trust strip; FAQ teaser), `/standard` (renders content/standard.md), `/definitions` (table from vendors.json), `/vendors/[slug]` (static per vendor), `/calculator`, `/benchmark` (n≥30 rule, shows "collecting: n so far"), `/privacy`, `/about`. Header nav + footer (GitHub link, standard version, "Runs in your browser").
-Results view: big numbers (billed rate vs strict rate, phantom count, $ at risk), reason bars, weekly chart (SVG), sensitivity table with window slider, flagged table (filter by reason, search id, paginate), buttons: Download dispute CSV, Copy summary/email, Download share card (PNG via canvas: only rates + vendor + "Strict Resolution Standard v0.1" + site), Contribute anonymously (shows exact JSON before sending), Start over. Processing in a Web Worker with progress bar. No network calls during an audit; Contribute, plus one anonymous usage-count beacon to /api/e when the page is hidden or closed (src/server/events.ts).
+Results view: big numbers (billed rate vs strict rate, phantom count, $ at risk), reason bars, weekly chart (SVG), sensitivity table with window slider, flagged table (filter by reason, search id, paginate), buttons: Download dispute CSV, Copy summary/email, Download share card (PNG via canvas: only rates + vendor + "Strict Resolution Standard v<current version>" + site), Contribute anonymously (shows exact JSON before sending), Start over. Processing in a Web Worker with progress bar. No network calls during an audit; Contribute, plus one anonymous usage-count beacon to /api/e when the page is hidden or closed (src/server/events.ts).
 
 ## Contribution API
-`POST /api/contribute` body = `Contribution { standardVersion, preset, vendor, periodDays, aiConversationsBucket ('<1k'|'1k-10k'|'10k-100k'|'>100k'), billedRate, strictRate, phantomShareOfBilled, windowDays, byReasonShare }`. `vendor` is an enum: the slugs in `content/vendors.json` plus `other` (never free text; the contribute dialog offers a picker). Validate with zod, reject extra fields, per-IP rate limit (hash, 5/hour, in-memory best effort), store as one JSON object in Vercel Blob (`contributions/<utc-day>-<sha256(payload)[:24]>.json`, private, overwrite allowed so the same numbers sent twice on one day count once). Sample data is never contributed (the button is disabled for it). `/benchmark` aggregates per vendor over contributions with `windowDays === 7` only: n, median billed rate, median strict rate, IQR — hidden unless n ≥ 30. When more than 5000 contributions exist the newest 5000 are used.
+`POST /api/contribute` body = `Contribution { standardVersion ('0.1' or '0.2'; stored 0.1 contributions stay valid), preset, vendor, periodDays, aiConversationsBucket ('<1k'|'1k-10k'|'10k-100k'|'>100k'), billedRate, strictRate, phantomShareOfBilled, windowDays, byReasonShare }`. `vendor` is an enum: the slugs in `content/vendors.json` plus `other` (never free text; the contribute dialog offers a picker). Validate with zod, reject extra fields, per-IP rate limit (hash, 5/hour, in-memory best effort), store as one JSON object in Vercel Blob (`contributions/<utc-day>-<sha256(payload)[:24]>.json`, private, overwrite allowed so the same numbers sent twice on one day count once). Sample data is never contributed (the button is disabled for it). `/benchmark` aggregates per vendor over contributions with `windowDays === 7` only: n, median billed rate, median strict rate, IQR — hidden unless n ≥ 30. When more than 5000 contributions exist the newest 5000 are used.
 
 ## Acceptance (must pass before deploy)
 - `npm run build` and `npm test` green; engine coverage of all rules and edge cases above.

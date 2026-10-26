@@ -1,4 +1,5 @@
-import { audit, parseFile, sampleDataset, type ConvResult, type Reason } from "@/engine";
+import { audit, parseFile, sampleDataset, simulateBilling, type ConvResult, type Reason } from "@/engine";
+import { BillComparison } from "../auditor/bill-comparison";
 import { dateShort, int, money, pct } from "../auditor/format";
 import { DEFAULT_PRICE, REASON_LABEL, REASON_ORDER, REASON_SHORT } from "../auditor/meta";
 import { Stamp } from "../stamp";
@@ -8,11 +9,12 @@ import { SampleButton } from "./sample-button";
 // tool runs in the browser. Nothing here is typed in by hand.
 async function sampleReport() {
   const { conversations } = await parseFile(sampleDataset("intercom"), { preset: "intercom" });
-  return audit(
+  const report = audit(
     conversations,
     { windowDays: 7, pricePerResolution: DEFAULT_PRICE.intercom, sameTopicOnly: false, negativeCsatThreshold: 0.4 },
     "intercom",
   );
+  return { report, simulation: simulateBilling(conversations, report) };
 }
 
 /** One flagged example per reason, in the Standard's order, so the list shows the variety. */
@@ -30,7 +32,7 @@ function examples(results: ConvResult[]): ConvResult[] {
 }
 
 export async function SampleReport() {
-  const report = await sampleReport();
+  const { report, simulation } = await sampleReport();
   const reasons = REASON_ORDER.map((r) => ({ r, n: report.byReason[r] })).filter((x) => x.n > 0);
   const max = Math.max(1, ...reasons.map((x) => x.n));
   const rows = examples(report.results);
@@ -108,6 +110,10 @@ export async function SampleReport() {
               ))}
             </ul>
           </div>
+        </div>
+
+        <div className="mt-12">
+          <BillComparison simulation={simulation} sample />
         </div>
 
         <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">

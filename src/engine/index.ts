@@ -5,3 +5,13 @@ export { detectPreset, parseFile, peekFile, type Peek } from './parse';
 export { contributionPayload, disputeSummaryText, toDisputeCsv, vendorForPreset } from './outputs';
 export { sampleDataset } from './sample';
 export { CSAT_SCALES, guessCsatScale, normalizeCsat, toReceipt, type CsatScale } from './presets';
+export {
+  simulateBilling,
+  billSplitSentence,
+  LIST_PRICES,
+  type BillingSimulation,
+  type BillSplit,
+  type SimRow,
+  type SimKind,
+  type SimRuleId,
+} from './simulate';

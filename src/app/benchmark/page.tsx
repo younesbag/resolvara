@@ -40,6 +40,7 @@ export default async function BenchmarkPage() {
         <p>
           People who run an audit can contribute the rates, and only the rates. A group appears here
           once {BENCHMARK_MIN_N} contributions are in, so no single company can be picked out. Only contributions made with the default 7-day window are compared.
+          Contributions made under Standard 0.1 and 0.2 are pooled: 0.2 only adds an optional action receipt as positive evidence, so the rates differ between the two versions only when a receipt column was mapped.
         </p>
       }
     >

@@ -16,6 +16,7 @@ const GUESS: Record<string, RegExp> = {
   reopenedAt: /reopen\w*[ _.-]?(at|date|time)/i,
   reopenCount: /reopen(?!\w*[ _.-]?(at|date|time))/i,
   csat: /csat|satisf|rating|survey|score/i,
+  actionReceipt: /receipt|refund[ _.-]?id|booking[ _.-]?id|order[ _.-]?update/i,
   topicText: /subject|topic|title|message|summary|text/i,
   channel: /channel|source|platform/i,
 };

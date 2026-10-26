@@ -11,7 +11,7 @@ export const metadata: Metadata = pageMeta(
   "/standard",
 );
 
-const FALLBACK = `# The Strict Resolution Standard v0.1
+const FALLBACK = `# The Strict Resolution Standard v0.2
 
 Status: draft for public comment. Licence: CC BY 4.0.
 

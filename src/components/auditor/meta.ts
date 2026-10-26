@@ -151,6 +151,11 @@ export const MAPPER_FIELDS: MapperField[] = [
     help: "Choose the scale below. It is turned into 0 to 1 using the scale, never the lowest and highest score in your file.",
     scaleKey: "csatScale",
   },
+  {
+    key: "actionReceipt",
+    label: "Action receipt (refund id, order update, booking id)",
+    help: "Optional. A column that holds a record of the effect the AI's action had in your system: a refund id, an order update, a booking id, a cancelled subscription id. A non-empty value counts as positive evidence only. It never cancels a fail signal, and it does not replace the customer column. Empty, 0, false, no, none, null and n/a mean no receipt.",
+  },
   { key: "closedAt", label: "Closed at", help: "Optional." },
   { key: "channel", label: "Channel", help: "Optional." },
   {

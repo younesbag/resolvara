@@ -9,7 +9,7 @@ const isDev = process.env.NODE_ENV !== "production";
 // - worker-src: the audit Web Worker is a same-origin bundle; blob: kept for bundler-generated wrappers.
 // - img-src blob: data: -> the share-card canvas preview and inline SVG/data images.
 // - connect-src: the only request the app makes after load is POST /api/contribute (same origin),
-//   plus the same-origin analytics beacon.
+//   the usage-count beacon POST /api/e (sent when the page is hidden), plus the same-origin analytics beacon.
 const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval' https://va.vercel-scripts.com" : ""}`,

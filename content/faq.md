@@ -6,7 +6,7 @@ It reads an export of your support conversations, finds the ones where an AI age
 
 ## Does my data leave my browser?
 
-No. The file is read and analysed in your browser, in a Web Worker. The audit makes no network request. The only time anything is sent is if you click "Contribute anonymously", and then the exact JSON is shown to you first. It contains aggregate rates only, no ids, no text and no customer data. See the privacy page for how to confirm this in your browser's developer tools.
+No. The file is read and analysed in your browser, in a Web Worker. The audit makes no network request. Your file and results are only ever sent if you click "Contribute anonymously", and then the exact JSON is shown to you first: aggregate rates only, no ids, no text and no customer data. Separately, when you leave the page it sends anonymous usage counts (which steps you reached, never file content). See the privacy page for how to confirm this in your browser's developer tools.
 
 ## How accurate is it?
 

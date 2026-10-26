@@ -10,6 +10,7 @@ import {
 } from "@phosphor-icons/react";
 import type { AuditReport } from "@/engine";
 import { Modal } from "../modal";
+import { track } from "../track";
 import { downloadBlob, stamp } from "./format";
 import { renderShareCard } from "./share-card";
 
@@ -49,6 +50,7 @@ export function ActionsBar({
       const text = await requestDispute();
       downloadBlob(new Blob([text], { type: "text/csv;charset=utf-8" }), `resolvara-dispute-${stamp()}.csv`);
       say("Dispute CSV downloaded");
+      track("csv_downloaded");
     } catch {
       say("Could not build the CSV");
     } finally {

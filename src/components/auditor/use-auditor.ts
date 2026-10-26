@@ -8,7 +8,9 @@ import type {
   Contribution,
   Preset,
 } from "@/engine";
+import { sizeBucket } from "@/server/events-shared";
 import type { WorkerInput, WorkerOutput } from "@/worker/protocol";
+import { track } from "../track";
 import { DEFAULT_PRICE, PRESET_VENDOR_NAME } from "./meta";
 
 export type Phase = "idle" | "working" | "mapping" | "results" | "error";
@@ -85,6 +87,8 @@ export function useAuditor() {
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const priceTouched = useRef(false);
   const vendorTouched = useRef(false);
+  // One "audit_done" count per file or sample, not one per option change.
+  const counted = useRef(false);
 
   const patch = useCallback((p: Partial<AuditorState>) => {
     setState((s) => ({ ...s, ...p }));
@@ -165,6 +169,11 @@ export function useAuditor() {
         }
         case "audited": {
           if (m.reqId !== latestAudit.current) break;
+          if (!counted.current) {
+            counted.current = true;
+            const s = stateRef.current;
+            track("audit_done", { preset: s.preset, sample: s.isSample, size: sizeBucket(s.conversationCount) });
+          }
           patch({
             phase: "results",
             report: m.report,
@@ -181,6 +190,7 @@ export function useAuditor() {
           break;
         }
         case "error": {
+          track("audit_error", { stage: m.stage === "audit" || m.stage === "dispute" ? "audit" : "parse" });
           if (m.stage === "audit" || m.stage === "dispute") {
             patch({ refreshing: false, notice: m.message });
           } else if (stateRef.current.report) {
@@ -206,6 +216,7 @@ export function useAuditor() {
       w.onmessage = onMessage;
       w.onerror = (e) => {
         e.preventDefault();
+        track("audit_error", { stage: "worker" });
         patch({
           phase: stateRef.current.report ? "results" : "error",
           error: e.message || "The audit worker failed to start.",
@@ -240,6 +251,7 @@ export function useAuditor() {
       disputeWaiters.current.clear();
       priceTouched.current = false;
       vendorTouched.current = false;
+      counted.current = false;
       setState({ ...INITIAL, phase: "working", stage: "reading", progress: 0.02, label });
     },
     [ensureWorker],
@@ -248,6 +260,7 @@ export function useAuditor() {
   const loadFile = useCallback(
     (file: File) => {
       freshStart(file.name);
+      track("file_loaded");
       post({ type: "peek", input: file, label: file.name });
     },
     [freshStart, post],
@@ -256,6 +269,7 @@ export function useAuditor() {
   const loadSample = useCallback(
     (preset: Preset) => {
       freshStart(`Sample data (${preset})`);
+      track("sample_opened", { preset });
       post({ type: "sample", preset });
     },
     [freshStart, post],

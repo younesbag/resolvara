@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { siteConfig } from "@/config/site";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { TrackVisit } from "@/components/track-visit";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -74,6 +75,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         </main>
         <SiteFooter />
         <Analytics />
+        <TrackVisit />
       </body>
     </html>
   );

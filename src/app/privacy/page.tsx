@@ -49,6 +49,18 @@ export default function PrivacyPage() {
           audit page.
         </p>
 
+        <h2>Usage counts</h2>
+        <p>
+          To learn which steps people reach, the page notes when you open a page, run a sample, load a file,
+          finish an audit or download the dispute CSV, and sends these notes to this site in one request when you
+          switch away from or close the page, never while an audit runs. Each note holds only the
+          step name, the export format (for example &quot;intercom&quot;), whether it was sample data, a size range
+          (such as &quot;1k-10k&quot; conversations), a campaign tag if the link you followed had one, and a random
+          id for this page load. It never holds your file, its name, its rows or your results. Nothing is saved
+          on your device for it. The source is in <code>src/components/track.ts</code> and{" "}
+          <code>src/server/events.ts</code>.
+        </p>
+
         <h2>The only thing stored on your device</h2>
         <p>
           If you switch the light or dark theme, that choice is saved in your browser&apos;s local storage so
@@ -60,8 +72,9 @@ export default function PrivacyPage() {
           <li>Open your browser&apos;s DevTools and go to the Network tab.</li>
           <li>Clear the list, then drop a file or press Try sample data.</li>
           <li>
-            Watch the list while the audit runs. There are no requests. The only request the page can ever
-            make is the one you trigger with Send in the Contribute dialog.
+            Watch the list while the audit runs. There are no requests. Later, when you switch away from or
+            close the page, it sends one anonymous usage note to <code>/api/e</code> (see Usage counts). The
+            only other request is the one you trigger with Send in the Contribute dialog.
           </li>
           <li>Turn off your network and run it again. It still works.</li>
         </ol>

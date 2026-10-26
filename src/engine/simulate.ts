@@ -160,10 +160,10 @@ export function simulateBilling(
     const esc = escalated(c) || !claimed(c);
     const human = humanReplied(c);
     if (!esc) hubspot += 1;
-    // Fin: a teammate joining after Fin answered does not remove it (only the customer asking for
-    // help does, which shows as an escalation or a reopen). Intercom publishes no return window,
-    // so no time cutoff is used: any reopen of the conversation deducts it.
-    if (!esc && !(c.reopenCount !== null && c.reopenCount > 0) && !c.reopenedAt) fin += 1;
+    // Fin: only the customer asking for more help removes a resolution; a teammate joining after Fin
+    // answered does not. The export cannot show whether a reopen came after Fin answered, so the
+    // vendor's own escalation state is the only signal used (same set as HubSpot, other price).
+    if (!esc) fin += 1;
     if (!esc && !human) {
       noHuman += 1;
       const reopened = c.reopenedAt
@@ -213,11 +213,11 @@ export function simulateBilling(
       'fin',
       'Intercom Fin',
       'Intercom',
-      'The AI marked it resolved, the customer did not ask for a person, and the conversation was not reopened. A teammate joining later does not remove it. Silence counts.',
+      'The AI marked it resolved and the customer did not ask for more help. A teammate joining later does not remove it. Silence counts.',
       fin,
       prices.fin,
       'modelled',
-      `${PREFIX}Per Intercom docs, checked ${CHECKED_AT}, Fin deducts a resolution when the customer comes back seeking help, and a teammate who joins after Fin answered does not remove it. Intercom publishes no return window, so this row reads a reopen of the same conversation as coming back, with no time limit; a new conversation from the same customer is not counted as a return. A minimum monthly commitment applies to the real invoice.`,
+      `${PREFIX}Per Intercom docs, checked ${CHECKED_AT}, Fin deducts a resolution when the customer comes back seeking help, and a teammate who joins after Fin answered does not remove it. Intercom publishes no return window and the export cannot show whether a reopen came after Fin answered, so this row uses only the vendor's own escalation state; reopens and new conversations from the same customer are not deducted. It is a high estimate. A minimum monthly commitment applies to the real invoice.`,
     ),
     row(
       'gorgias',

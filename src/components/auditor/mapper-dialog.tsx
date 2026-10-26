@@ -16,7 +16,9 @@ const GUESS: Record<string, RegExp> = {
   reopenedAt: /reopen\w*[ _.-]?(at|date|time)/i,
   reopenCount: /reopen(?!\w*[ _.-]?(at|date|time))/i,
   csat: /csat|satisf|rating|survey|score/i,
-  actionReceipt: /receipt|refund[ _.-]?id|booking[ _.-]?id|order[ _.-]?update/i,
+  // A receipt is positive evidence, so it is pre-selected only for an exact "action receipt" header.
+  // Any other column (refund_id, receipt_error...) has to be chosen by the user.
+  actionReceipt: /^\s*action[ _.-]?receipt\s*$/i,
   topicText: /subject|topic|title|message|summary|text/i,
   channel: /channel|source|platform/i,
 };

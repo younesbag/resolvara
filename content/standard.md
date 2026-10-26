@@ -97,6 +97,8 @@ Exact rules:
 
 The result is evidence for a conversation with your vendor. A defensible use: export the flagged conversations, read a sample by hand, and send the vendor the ones you believe were wrongly counted, with the reason for each. State the window and thresholds you used. Expect that the vendor will apply its own contract definition.
 
+The definitions can also go into the contract itself, before you sign or at renewal, so that the vendor's billable definition and the Standard are the same thing. The [contract clause page](/contract) builds that text from these definitions.
+
 ## 8. Versioning and changelog
 
 The Standard uses a major.minor version. A change to any default or any rule is a new version. Reports must state the version that produced them.

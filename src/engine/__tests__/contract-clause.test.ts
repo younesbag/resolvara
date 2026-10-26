@@ -12,7 +12,7 @@ describe('contract clause defaults', () => {
     expect(def[1]).toMatch(/^Human reply: .*after the AI agent took part, including a courtesy reply\./);
     expect(def[2]).toMatch(/^Reopened: .*reopen count above zero.*within the Judgement Window\./);
     expect(def[3]).toMatch(/^Repeat contact: .*same end user opened another conversation/);
-    expect(def[4]).toMatch(/^Negative rating: .*below 0\.4 on a scale of 0 to 1 \(below 2 on a scale of 1 to 5\)/);
+    expect(def[4]).toMatch(/^Negative rating: .*below 0\.4 on a scale of 0 to 1 \(a rating of 1 or 2 on a scale of 1 to 5\)/);
   });
 
   it('uses the Standard defaults: 7 days, 0.4, 30 dispute days, receipt on, silence reported', () => {
@@ -49,7 +49,10 @@ describe('options change the text', () => {
   it('numbers appear correctly', () => {
     const t = text({ windowDays: 14, csatThreshold: 0.5, disputeDays: 45 });
     expect(t).toContain('period of 14 days');
-    expect(t).toContain('below 0.5 on a scale of 0 to 1 (below 2.5 on a scale of 1 to 5)');
+    // (r - 1) / 4 < 0.5 holds for 1 and 2; a 3 normalises to exactly 0.5 and passes.
+    expect(t).toContain('below 0.5 on a scale of 0 to 1 (a rating of 1 or 2 on a scale of 1 to 5)');
+    expect(text({ csatThreshold: 0.6 })).toContain('(a rating of 1, 2 or 3 on a scale of 1 to 5)');
+    expect(text({ csatThreshold: 0.1 })).toContain('(a rating of 1 on a scale of 1 to 5)');
     expect(t).toContain('Within 45 days of receiving an export');
     expect(t).toContain('Judgement Window of 14 days and a rating threshold of 0.5');
   });

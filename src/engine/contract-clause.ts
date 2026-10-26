@@ -84,9 +84,15 @@ export function normalizeOptions(input: Partial<ContractOptions> = {}): Contract
 
 const trim = (n: number) => String(Math.round(n * 100) / 100);
 
-/** The threshold on the 1-to-5 scale. The Standard normalises 1-to-5 scores by dividing by 5. */
+/**
+ * The whole 1-to-5 ratings that fall below the threshold. The engine normalises a 1-to-5 score
+ * as (score - 1) / 4 (presets.ts normalizeCsat), so 0.4 catches 1 and 2, and a 3 (0.5) passes.
+ */
 export function csatOnFiveScale(threshold: number): string {
-  return trim(threshold * 5);
+  const below = [1, 2, 3, 4, 5].filter((r) => (r - 1) / 4 < threshold);
+  if (below.length === 0) return "no rating";
+  if (below.length === 1) return "a rating of 1";
+  return `a rating of ${below.slice(0, -1).join(", ")} or ${below[below.length - 1]}`;
 }
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
@@ -150,7 +156,7 @@ export function buildClauses(partial: Partial<ContractOptions> = {}, standardVer
     },
     {
       ref: "(e)",
-      text: `Negative rating: the end user gave a satisfaction score below ${T} on a scale of 0 to 1 (below ${T5} on a scale of 1 to 5), after converting the score to the scale of 0 to 1 by the scale of the rating.`,
+      text: `Negative rating: the end user gave a satisfaction score below ${T} on a scale of 0 to 1 (${T5} on a scale of 1 to 5), after converting the score to the scale of 0 to 1 by the scale of the rating.`,
       sub: true,
     },
     { ref: "1.4", text: `"Positive Evidence" means any one of the following:` },

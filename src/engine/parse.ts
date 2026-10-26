@@ -16,6 +16,7 @@ import {
   toCount,
   toHuman,
   toRawCsat,
+  toReceipt,
   zendeskTier,
   type Candidates,
   type CsatScale,
@@ -527,6 +528,7 @@ class Collector {
       reopenCount: d.reopens,
       reopenedAt: reopened,
       csat: d.csat,
+      actionReceipt: cols.receipt ? toReceipt(g('receipt')) : null,
       channel: d.channel,
       topicText: d.topic,
     };

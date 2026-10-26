@@ -1,4 +1,4 @@
-# The Strict Resolution Standard v0.1
+# The Strict Resolution Standard v0.2
 
 Status: draft for public comment. Licence: CC BY 4.0. Maintained by the Resolvara contributors.
 
@@ -18,7 +18,9 @@ It is a measurement, not a verdict. It does not replace your contract, and it do
 
 **Strict resolution.** A billed or unbilled AI conversation that is old enough to judge (not in the pending window), has a customer identifier, and shows none of the five fail signals in section 4. A strict resolution is a conversation with no visible sign of failure. It is not proof that the customer's problem was solved.
 
-**Confirmed pass.** A strict resolution that also carries positive evidence: the vendor state is "confirmed", or the customer gave an explicit positive rating. An explicit positive rating is a satisfaction score of 0.75 or more on the 0..1 scale (4 or 5 on a 1-to-5 scale). Confirmed passes are reported separately so that silence-only passes can be seen.
+**Confirmed pass.** A strict resolution that also carries positive evidence. There are three kinds: the vendor state is "confirmed"; the customer gave an explicit positive rating; or the export holds an action receipt. An explicit positive rating is a satisfaction score of 0.75 or more on the 0..1 scale (4 or 5 on a 1-to-5 scale). Confirmed passes are reported separately, with a count per kind of evidence, so that silence-only passes can be seen.
+
+**Action receipt.** A record in the export that the AI's action actually took effect in a system of record: a refund id, an order update, a booking id, a cancelled subscription id. The export marks it in a column the user maps, and the receipt counts as present when that column is not empty and not a falsy token: empty, "0", "false", "no", "none", "null" or "n/a", in any case and after trimming whitespace. A receipt shows that something happened. It does not show that the customer was satisfied or did not come back, so it is positive evidence only (see sections 3 and 5). No vendor export is assumed to have one: a file without a receipt column simply has no receipts, and its verdicts are the same as under 0.1.
 
 **Phantom resolution.** A billed AI conversation that shows at least one fail signal. The phrase means "billed but not strictly resolved". It does not mean the vendor acted dishonestly (see section 6).
 
@@ -38,12 +40,14 @@ Every AI conversation receives exactly one verdict, evaluated in this order.
 2. **Phantom.** If the conversation is billed and at least one fail signal fires, the verdict is `phantom`. All firing signals are recorded as reasons, each with an evidence string.
 3. **Not strict, not billed.** If the conversation is not billed and a fail signal fires, the verdict is `fail_unbilled`: it is counted as not strictly resolved, with the same reasons, but it is not a phantom resolution.
 4. **Unverifiable.** If no fail signal fires and there is no customer identifier, the verdict is `unverifiable`. A fail signal that is present always wins, because it is evidence on its own.
-5. **Confirmed pass.** No fail signal, and the vendor state is "confirmed" or the customer gave an explicit positive rating.
-6. **Strict pass.** No fail signal and no positive evidence.
+5. **Confirmed pass.** No fail signal, a customer identifier, and at least one kind of positive evidence: the vendor state is "confirmed", the customer gave an explicit positive rating, or the conversation carries an action receipt.
+6. **Strict pass.** No fail signal, a customer identifier, and no positive evidence.
+
+Positive evidence is only ever read after the fail signals and the customer-identifier test have passed, so it can move a conversation from strict pass to confirmed pass and nowhere else. It never turns a failure into a pass and never turns an unverifiable conversation into a judged one.
 
 ## 4. The five fail signals
 
-Defaults are version 0.1 values. Every parameter is user-adjustable, and a report must state the values it used.
+Defaults are version 0.2 values (unchanged from 0.1). Every parameter is user-adjustable, and a report must state the values it used.
 
 | Signal | Fires when | Default |
 |---|---|---|
@@ -69,10 +73,15 @@ Exact rules:
 - **Time zones.** Timestamps with an offset are converted. Timestamps without an offset are treated as UTC and a warning is reported.
 - **Missing columns.** A missing optional column disables the signals that need it and produces a warning. It never causes an error, and a report states which signals were unavailable.
 - **No customer key.** The repeat-contact signal cannot run. A conversation that shows another fail signal is still judged (phantom or not strict, not billed). One that shows none is `unverifiable`.
+- **Receipt and a fail signal.** A conversation with an action receipt and a fail signal is judged on the fail signal: `phantom` if billed, `fail_unbilled` if not. A refund id does not undo a repeat contact, a human reply, a reopen, a low rating or an escalation, and the fail signals are evaluated first. The receipt is not listed as a reason.
+- **Receipt and no customer key.** A conversation with an action receipt, no fail signal and no customer identifier stays `unverifiable`. A receipt proves that an effect took place. It cannot show that the customer did not come back, which is the test the missing identifier prevents, so it does not replace the key.
+- **Receipt and the pending window.** A conversation inside the pending window is `pending_window` whatever it carries, receipt included.
+- **Receipt column empty or not mapped.** A mapped column whose cell is empty or a falsy token means no receipt for that conversation. A file with no receipt column has no receipts at all, and the report shows zero for that source.
+- **Several kinds of evidence.** A confirmed pass can carry more than one kind of evidence (for example a vendor "confirmed" state and a receipt). It is counted once as a confirmed pass. The report also counts each kind of evidence separately (vendor confirmed, positive rating, action receipt), counting a conversation once under every kind it carries, so those three numbers can add up to more than the number of confirmed passes.
 - **Empty or all-pending files.** The report shows zero rates and says why.
 - **Pending conversations and rates.** Pending conversations are removed from the denominator of every rate. The report shows their count.
 - **Unbilled conversations.** The Standard still evaluates them so that a strict rate over all AI conversations can be given next to the billed rate.
-- **Reported rates.** All rates use one population, the judged AI conversations: AI conversations minus pending minus unverifiable. The strict rate is (strict passes + confirmed passes) divided by the judged conversations. The billed rate is the billed judged conversations divided by the judged conversations, so it can be set beside the strict rate. The phantom share of billed is phantom conversations divided by the billed judged conversations. A conversation that is billed but still pending or unverifiable is in none of these. The report also shows the vendor's full billed count, which is what the invoice counts.
+- **Reported rates.** All rates use one population, the judged AI conversations: AI conversations minus pending minus unverifiable. The strict rate is (strict passes + confirmed passes) divided by the judged conversations. Positive evidence moves a conversation between strict pass and confirmed pass, both of which are in the strict rate, so a receipt column does not change the strict rate; it changes how many of the passes carry evidence. The billed rate is the billed judged conversations divided by the judged conversations, so it can be set beside the strict rate. The phantom share of billed is phantom conversations divided by the billed judged conversations. A conversation that is billed but still pending or unverifiable is in none of these. The report also shows the vendor's full billed count, which is what the invoice counts.
 - **Reason counts.** The count per fail signal is taken over phantom conversations only. One conversation can carry several reasons, so the counts can add up to more than the number of phantom conversations. The anonymous contribution reports each reason as the share of phantom conversations that carry it.
 - **Window sensitivity.** Reports should show results for W = 1, 3, 7, 14 and 30 days next to the chosen window, because the result depends on it.
 
@@ -93,17 +102,20 @@ The result is evidence for a conversation with your vendor. A defensible use: ex
 The Standard uses a major.minor version. A change to any default or any rule is a new version. Reports must state the version that produced them.
 
 - **0.1 (2026-10-24).** First public draft. Five fail signals, pending window, default window of 7 days, CSAT threshold of 0.4, optional same-topic filter at 0.35. Clarified before publication, after an independent review: the not-strict-not-billed verdict, one population for all rates, unverifiable conversations left out of the rates, the explicit positive rating (0.75), the CSAT scale rule, the order of a human reply (including the Zendesk agent-reply option), the handling of reopen counts and reopen timestamps, and the reason-count population.
+- **0.2 (2026-10-27).** An action receipt becomes a third kind of positive evidence beside the vendor "confirmed" state and the explicit positive rating. Rationale: community feedback pointed out that a resolution is better shown by a receipt for the actual effect (a refund id, an order update, a kept appointment) than by silence, and that the Standard had no way to use one. The receipt is positive evidence only. Fail signals still win, a conversation without a customer identifier stays unverifiable, and the pending window still applies. The verdict order is unchanged apart from item 5, which now lists the receipt. The report gains a count of positive evidence by kind, so that silence-only passes stay visible. No rule, default or fail signal changed: a file with no receipt column gets the same verdicts and rates under 0.2 as under 0.1, which is why 0.1 and 0.2 results can be compared unless a receipt column was mapped.
 
-Known limitations of 0.1, which are candidates for later versions:
+Known limitations of 0.2, which are candidates for later versions:
 
 - Repeat contact is a proxy and can over-count when a customer returns about a different issue.
 - A human reply is counted even when it was only a courtesy message.
 - The Standard does not read message text, so it cannot detect an AI answer that was wrong but unchallenged.
 - Silence is not treated as failure. A customer who leaves without a trace and never returns passes.
+- A receipt is taken from the export as given. The Standard does not check that the id exists in the system of record, or that it belongs to the action the customer asked for, and a conversation can carry a receipt for an unrelated action.
+- A receipt only helps a buyer whose export has one. Vendor exports are not known to include a receipt column, so most files will show no receipts until the user can join one in from their own systems.
 
 ## 9. How to cite
 
-> Resolvara contributors. *The Strict Resolution Standard, version 0.1.* 2026. Licensed under CC BY 4.0. Retrieved from the Resolvara website.
+> Resolvara contributors. *The Strict Resolution Standard, version 0.2.* 2026. Licensed under CC BY 4.0. Retrieved from the Resolvara website.
 
 Include the version number. Please link to the page you used.
 

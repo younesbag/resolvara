@@ -53,7 +53,7 @@ const verdict = (convs: Conversation[], id: string) => run(convs).results.find((
 describe('engine smoke test (a missing engine can never pass CI again)', () => {
   it('audit([]) returns a complete, finite report', () => {
     const r = run([]);
-    expect(r.standardVersion).toBe('0.1');
+    expect(r.standardVersion).toBe('0.2');
     expect(r.aiConversations).toBe(0);
     expect(r.sensitivity.map((s) => s.windowDays)).toEqual([1, 3, 7, 14, 30]);
     expect(r.warnings.join(' ')).toMatch(/No AI conversations/);

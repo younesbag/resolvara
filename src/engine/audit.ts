@@ -1,9 +1,11 @@
-// The Strict Resolution Standard v0.1 classifier (content/standard.md, docs/SPEC.md).
+// The Strict Resolution Standard v0.2 classifier (content/standard.md, docs/SPEC.md).
 import { TOPIC_THRESHOLD, TopicIndex } from './topic';
+import { CURRENT_STANDARD_VERSION } from './types';
 import type {
   AuditOptions,
   AuditParams,
   AuditReport,
+  ConfirmedBy,
   Conversation,
   ConvResult,
   Preset,
@@ -47,6 +49,7 @@ interface Counts {
   unverifiable: number;
   strictPass: number;
   confirmedPass: number;
+  confirmedBy: ConfirmedBy;
   phantom: number;
   failUnbilled: number;
   billedJudged: number;
@@ -184,6 +187,7 @@ export function audit(convs: Conversation[], opts: AuditOptions, preset: Preset)
       unverifiable: 0,
       strictPass: 0,
       confirmedPass: 0,
+      confirmedBy: { vendorConfirmed: 0, positiveRating: 0, actionReceipt: 0 },
       phantom: 0,
       failUnbilled: 0,
       billedJudged: 0,
@@ -222,9 +226,17 @@ export function audit(convs: Conversation[], opts: AuditOptions, preset: Preset)
           p.unverifiable += 1;
         } else {
           if (c.billed) p.billedJudged += 1;
-          if (c.vendorState === 'confirmed' || (c.csat !== null && c.csat >= POSITIVE_RATING)) {
+          // Positive evidence (Standard section 3): vendor confirmed, explicit positive rating, or an
+          // action receipt. Each source is counted on its own; the conversation counts once as confirmed.
+          const vendorOk = c.vendorState === 'confirmed';
+          const ratingOk = c.csat !== null && c.csat >= POSITIVE_RATING;
+          const receiptOk = c.actionReceipt === true;
+          if (vendorOk || ratingOk || receiptOk) {
             verdict = 'confirmed_pass';
             p.confirmedPass += 1;
+            if (vendorOk) p.confirmedBy.vendorConfirmed += 1;
+            if (ratingOk) p.confirmedBy.positiveRating += 1;
+            if (receiptOk) p.confirmedBy.actionReceipt += 1;
           } else {
             verdict = 'strict_pass';
             p.strictPass += 1;
@@ -327,7 +339,7 @@ export function audit(convs: Conversation[], opts: AuditOptions, preset: Preset)
     .map(([wk, v]) => ({ weekStart: wk, ...v }));
 
   return {
-    standardVersion: '0.1',
+    standardVersion: CURRENT_STANDARD_VERSION,
     preset,
     params,
     rowsRead: convs.length,
@@ -342,6 +354,7 @@ export function audit(convs: Conversation[], opts: AuditOptions, preset: Preset)
     verifiable: judged,
     strictPass: p.strictPass,
     confirmedPass: p.confirmedPass,
+    confirmedBy: p.confirmedBy,
     phantom: p.phantom,
     failUnbilled: p.failUnbilled,
     pending: p.pending,

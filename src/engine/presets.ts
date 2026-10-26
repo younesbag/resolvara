@@ -29,7 +29,8 @@ export type FieldKey =
   | 'handleTime'
   | 'isTest'
   | 'adminReplyAt'
-  | 'aiStartedAt';
+  | 'aiStartedAt'
+  | 'receipt';
 
 export type Candidates = Partial<Record<FieldKey, string[]>>;
 
@@ -47,6 +48,7 @@ export const MAPPING_KEYS: Record<string, FieldKey> = {
   csat: 'csat',
   topicText: 'topic',
   channel: 'channel',
+  actionReceipt: 'receipt',
 };
 
 export const norm = (s: string): string => s.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -172,6 +174,8 @@ export const GENERIC: Candidates = {
   csat: ['csat', 'csatscore', 'rating', 'satisfaction', 'satisfactionscore', 'surveyscore', 'customerrating'],
   topic: ['topic', 'subject', 'topictext', 'title', 'firstmessage', 'summary'],
   channel: ['channel', 'source', 'platform', 'channelgroup'],
+  // Exact name only: no vendor preset documents a receipt column, and a receipt is positive evidence.
+  receipt: ['actionreceipt'],
 };
 
 export const PRESET_CANDIDATES: Record<Preset, Candidates> = {
@@ -207,6 +211,23 @@ export function toBool(v: unknown): boolean | null {
   const n = Number(s);
   if (Number.isFinite(n)) return n !== 0;
   return null;
+}
+
+const NO_RECEIPT = new Set(['', '0', 'false', 'no', 'none', 'null', 'n/a']);
+
+/**
+ * Action receipt cell -> boolean (Standard 0.2). True when the cell is non-empty and not a falsy
+ * token (empty, "0", "false", "no", "none", "null", "n/a", any case, trimmed). A refund id, an order
+ * number or a booking id is therefore a receipt; a JSON array or object counts when it is not empty.
+ * Only called for a mapped column: with no column the conversation's receipt stays null (unknown).
+ */
+export function toReceipt(v: unknown): boolean {
+  if (v === null || v === undefined) return false;
+  if (typeof v === 'boolean') return v;
+  if (typeof v === 'number') return Number.isFinite(v) && v !== 0;
+  if (Array.isArray(v)) return v.length > 0;
+  if (typeof v === 'object') return Object.keys(v as object).length > 0;
+  return !NO_RECEIPT.has(String(v).trim().toLowerCase());
 }
 
 /** A yes/no column or a count above zero -> boolean; empty -> null. */

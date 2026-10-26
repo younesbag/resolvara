@@ -4,4 +4,4 @@ export { audit, POSITIVE_RATING, SENSITIVITY_WINDOWS } from './audit';
 export { detectPreset, parseFile, peekFile, type Peek } from './parse';
 export { contributionPayload, disputeSummaryText, toDisputeCsv, vendorForPreset } from './outputs';
 export { sampleDataset } from './sample';
-export { CSAT_SCALES, guessCsatScale, normalizeCsat, type CsatScale } from './presets';
+export { CSAT_SCALES, guessCsatScale, normalizeCsat, toReceipt, type CsatScale } from './presets';

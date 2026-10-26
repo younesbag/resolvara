@@ -90,6 +90,11 @@ export function disputeSummaryText(report: AuditReport, opts: AuditOptions | und
     `Billed as resolved: ${report.billedJudged} of ${report.judged} judged (${pct(report.billedRate)})`,
     `Really resolved, of those billed: ${report.billedStrictPass} of ${report.billedJudged} billed resolutions pass the Strict Resolution Standard (${pct(report.billedStrictRate)})`,
     `Overall strict rate (all judged AI conversations, billed or not): ${report.strictPass + report.confirmedPass} of ${report.judged} (${pct(report.strictRate)})`,
+    ...(report.confirmedPass > 0
+      ? [
+          `Positive evidence among the passes that have it (a conversation can have several): ${report.confirmedBy.vendorConfirmed} vendor confirmed, ${report.confirmedBy.positiveRating} explicit positive rating, ${report.confirmedBy.actionReceipt} action receipt. The other ${report.strictPass} passes rest on the absence of a fail signal.`,
+        ]
+      : []),
     `Phantom resolutions (billed but not strictly resolved): ${report.phantom}, ${pct(report.phantomShareOfBilled)} of the billed ones that were judged`,
     price
       ? `Amount in question: ${report.phantom} x ${price} = ${money(report.dollarsAtRisk)}`

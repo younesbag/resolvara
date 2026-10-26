@@ -490,7 +490,7 @@ describe('outputs: dispute CSV, summary, contribution payload', () => {
     const r = run(fixture());
     const t = disputeSummaryText(r, OPTS, 'Intercom');
     expect(t).toContain('Intercom');
-    expect(t).toContain('0.1');
+    expect(t).toContain('0.2');
     expect(t).toMatch(/(^|\D)7(\D|$)/);
     expect(t.toLowerCase()).not.toContain('fraud');
   });

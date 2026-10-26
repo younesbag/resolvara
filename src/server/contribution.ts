@@ -1,7 +1,7 @@
 // Server-side contribution schema, aggregation and rate limiting.
 // Server only: imports nothing from React or the browser. See docs/SPEC.md "Contribution API".
 import { z } from "zod";
-import { CONTRIBUTION_VENDORS, type Contribution, type ContributionVendor } from "@/engine";
+import { CONTRIBUTION_VENDORS, STANDARD_VERSIONS, type Contribution, type ContributionVendor } from "@/engine";
 
 export const CONTRIBUTION_PREFIX = "contributions/";
 export const BENCHMARK_MIN_N = 30;
@@ -10,7 +10,8 @@ const rate = z.number().finite().min(0).max(1);
 
 // Strict: unknown keys are rejected, so nothing can be smuggled into the store.
 export const contributionSchema = z.strictObject({
-  standardVersion: z.literal("0.1"),
+  // Old stored contributions (0.1) stay valid. 0.2 differs from 0.1 only when an action receipt column was mapped.
+  standardVersion: z.enum(STANDARD_VERSIONS),
   preset: z.enum(["intercom", "zendesk", "ada", "gorgias", "generic"]),
   // A closed list (the slugs in content/vendors.json plus "other"), never free text.
   vendor: z.enum(CONTRIBUTION_VENDORS),

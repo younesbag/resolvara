@@ -77,7 +77,9 @@ export function BigNumbers({ report, opts }: { report: AuditReport; opts: AuditO
           {report.confirmedPass > 0 && (
             <dd className="mt-1 text-sm text-ink-3">
               Positive evidence: {int(report.confirmedBy.vendorConfirmed)} vendor confirmed,{" "}
-              {int(report.confirmedBy.positiveRating)} rating, {int(report.confirmedBy.actionReceipt)} receipt
+              {int(report.confirmedBy.positiveRating)} {report.confirmedBy.positiveRating === 1 ? "rating" : "ratings"}
+              {report.confirmedBy.actionReceipt > 0 &&
+                `, ${int(report.confirmedBy.actionReceipt)} ${report.confirmedBy.actionReceipt === 1 ? "receipt" : "receipts"}`}
               {report.confirmedBy.vendorConfirmed + report.confirmedBy.positiveRating + report.confirmedBy.actionReceipt >
                 report.confirmedPass && " (one conversation can have several)"}
             </dd>

@@ -15,7 +15,7 @@ The audit runs in your browser. Your file is not uploaded. Resolvara has no acco
 
 ## Usage counts
 
-To learn which steps people reach, the page notes when you open a page, run a sample, load a file, finish an audit, download the dispute CSV or the finance report, or open the dispute-help email, and sends these notes to this site in one request when you switch away from or close the page, never while an audit runs. Each note holds only the step name, the export format (for example "intercom"), whether it was sample data, a size range (such as 1k-10k conversations), a campaign tag if the link you followed had one, and a random id for this page load. It never holds your file, its name, its rows or your results, and nothing is saved on your device for it. The code is in `src/components/track.ts` and `src/server/events.ts`.
+To learn which steps people reach, the page notes when you open a page, scroll to the sample report, run a sample, load a file, finish an audit, download the dispute CSV or the finance report, or open the dispute-help email, and sends these notes to this site in one request when you switch away from or close the page, never while an audit runs. Each note holds only the step name, the export format (for example "intercom"), whether it was sample data, a size range (such as 1k-10k conversations), a campaign tag if the link you followed had one, and a random id for this page load. It never holds your file, its name, its rows or your results, and nothing is saved on your device for it. The code is in `src/components/track.ts` and `src/server/events.ts`.
 
 ## The optional contribution
 

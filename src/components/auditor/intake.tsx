@@ -160,11 +160,11 @@ export function Intake({
           }}
         />
         <div className="flex flex-wrap justify-center gap-3">
-          <button type="button" className="btn btn-primary" onClick={() => inputRef.current?.click()}>
-            Choose file
+          <button type="button" className="btn btn-primary" onClick={() => onSample("intercom")}>
+            Run the sample, no file needed
           </button>
-          <button type="button" className="btn btn-secondary" onClick={() => onSample("intercom")}>
-            Try the sample
+          <button type="button" className="btn btn-secondary" onClick={() => inputRef.current?.click()}>
+            Choose file
           </button>
         </div>
         <p className="text-sm text-ink-3">

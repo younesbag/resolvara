@@ -51,7 +51,7 @@ export default function PrivacyPage() {
 
         <h2>Usage counts</h2>
         <p>
-          To learn which steps people reach, the page notes when you open a page, run a sample, load a file,
+          To learn which steps people reach, the page notes when you open a page, scroll to the sample report, run a sample, load a file,
           finish an audit, download the dispute CSV or the finance report, or open the dispute-help email, and sends these notes to this site in one request when you
           switch away from or close the page, never while an audit runs. Each note holds only the
           step name, the export format (for example &quot;intercom&quot;), whether it was sample data, a size range

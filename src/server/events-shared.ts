@@ -10,6 +10,7 @@ export const EVENT_NAMES = [
   "audit_error",
   "finance_report",
   "dispute_help",
+  "sample_report_seen",
 ] as const;
 export type EventName = (typeof EVENT_NAMES)[number];
 

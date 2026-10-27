@@ -1,13 +1,17 @@
+import { cache } from "react";
 import { audit, parseFile, sampleDataset, simulateBilling, type ConvResult, type Reason } from "@/engine";
 import { BillComparison } from "../auditor/bill-comparison";
 import { dateShort, int, money, pct } from "../auditor/format";
 import { DEFAULT_PRICE, REASON_LABEL, REASON_ORDER, REASON_SHORT } from "../auditor/meta";
 import { Stamp } from "../stamp";
+import { TrackSeen } from "../track-seen";
 import { SampleButton } from "./sample-button";
 
-// A real audit of the built-in Intercom sample, computed on the server with the same engine the
-// tool runs in the browser. Nothing here is typed in by hand.
-async function sampleReport() {
+export const SAMPLE_REPORT_ID = "sample-report";
+
+// An audit of the built-in synthetic Intercom sample, computed on the server with the same engine the
+// tool runs in the browser. Nothing here is typed in by hand. The hero quotes the same run.
+export const sampleReport = cache(async () => {
   const { conversations } = await parseFile(sampleDataset("intercom"), { preset: "intercom" });
   const report = audit(
     conversations,
@@ -15,7 +19,7 @@ async function sampleReport() {
     "intercom",
   );
   return { report, simulation: simulateBilling(conversations, report) };
-}
+});
 
 /** One flagged example per reason, in the Standard's order, so the list shows the variety. */
 function examples(results: ConvResult[]): ConvResult[] {
@@ -38,13 +42,13 @@ export async function SampleReport() {
   const rows = examples(report.results);
 
   return (
-    <section aria-labelledby="sample-h" className="border-y border-line bg-surface-2">
+    <section id={SAMPLE_REPORT_ID} aria-labelledby="sample-h" className="scroll-mt-16 border-y border-line bg-surface-2">
       <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
         <h2 id="sample-h" className="text-3xl font-semibold tracking-tight sm:text-4xl">
           This is what you get back.
         </h2>
         <p className="mt-3 max-w-[60ch] text-ink-2">
-          A real audit of the built-in Intercom sample: {int(report.aiConversations)} AI conversations
+          A live run on the built-in synthetic Intercom sample: {int(report.aiConversations)} AI conversations
           from {dateShort(report.period.start)} to {dateShort(report.period.end)}, run by the same code
           as the tool above.
         </p>
@@ -56,6 +60,7 @@ export async function SampleReport() {
                 <span className="num-lg text-accent">{pct(report.phantomShareOfBilled, 0)}</span> of billed
                 resolutions failed the strict test.
               </p>
+              <TrackSeen name="sample_report_seen" />
               <dl className="mt-8 grid grid-cols-3 gap-4 sm:gap-6">
                 <div>
                   <dt className="text-sm text-ink-3">Billed as resolved</dt>

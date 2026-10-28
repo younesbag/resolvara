@@ -89,9 +89,14 @@ per page session. Ticket subjects are used only in memory for the optional same-
   least 6.1 seconds apart (about 10,000 tickets a minute) and waits `Retry-After` on a 429. Large accounts
   therefore take minutes, not seconds.
 - **Admin only.** A non-admin gets a 403 and a clear message.
-- **Not yet confirmed on real AI-agent tickets:** how Zendesk marks AI-agent comments (P0 checks 8 and 11 are
-  pending). When the AI comment cannot be told apart, the order check answers "unknown" and the audit falls
-  back to the reply count.
+- **Seen on real AI-agent tickets (trial, 2026-10-25 and 2026-10-28):** the AI agent's messages are not ticket
+  comments. During a live session the ticket holds one private placeholder; a teammate's messaging reply is not
+  a comment either. When the session ends, Zendesk adds one public `chat_transcript` comment, written by a
+  system user, with every line as `(hh:mm:ss) Name: text`. The app reads the staff names once
+  (`/api/v2/users.json?role[]=agent&role[]=admin`) and counts a teammate named in that transcript as a human
+  reply after the AI. An escalation is set on the ticket at once (`zd_resolution_tier_assisted_escalation`); an
+  AI-only conversation gets its tier only after the session ends. Preview conversations
+  (`zen:preview:ultimate`) never get a tier.
 
 ## Marketplace listing
 

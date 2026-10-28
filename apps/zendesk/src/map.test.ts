@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { audit, parseFile, type AuditOptions, type AuditReport } from '@/engine';
 import { makeKeyHasher } from '@/engine/hash';
 import { withBilledBasis } from './basis';
-import { replyAfterAi } from './comments';
+import { replyAfterAi, transcriptSpeakers } from './comments';
 import { findResolutionFields, toConversations } from './map';
 import type { MapInput, ZMetricSet, ZTicket } from './types';
 import { parseUsageCsv } from './usage-csv';
@@ -285,6 +285,33 @@ describe('replyAfterAi', () => {
     expect(replyAfterAi([placeholder, staffReply], users, '2026-09-01T10:00:00Z')).toBe(true);
     expect(replyAfterAi([placeholder], users, '2026-09-01T10:00:00Z')).toBe(false);
     expect(replyAfterAi([placeholder, staffReply], users)).toBeNull();
+  });
+  it('messaging: a teammate named in the chat transcript replied after the AI (observed 2026-10-28)', () => {
+    const placeholder = c(1, 1, '2026-10-28T08:14:08Z', false);
+    const transcript = (body: string) => ({
+      id: 2,
+      author_id: -1, // system user, not in the users list
+      public: true,
+      created_at: '2026-10-28T08:23:13Z',
+      plain_body: body,
+      via: { channel: 'chat_transcript', source: { rel: null } },
+    });
+    const withTeammate = transcript(
+      '(16:12:54) AI agent: Hey there, how can I help you today?\n\n' +
+        '(16:13:31) Web User 6ae1: Hi, what are your opening hours?\n\n' +
+        '(16:14:07) AI agent: No problem, please leave your details.\n\n' +
+        '(16:22:11) BAGHDADI YOUNES: Hi, this is a person from the team.',
+    );
+    const aiOnly = transcript(
+      '(16:17:50) AI agent: Hey there.\n\n(16:18:02) Web User 77ab: Thanks!\n\n(16:18:05) AI agent: You are welcome!',
+    );
+    const staff = new Set(['BAGHDADI YOUNES']);
+    const start = '2026-10-28T08:13:32Z';
+    expect(replyAfterAi([placeholder, withTeammate], users, start, staff)).toBe(true);
+    expect(replyAfterAi([placeholder, aiOnly], users, start, staff)).toBe(false);
+    // Without the staff list the transcript proves nothing either way.
+    expect(replyAfterAi([placeholder, withTeammate], users, start)).toBe(false);
+    expect(transcriptSpeakers(withTeammate.plain_body)).toEqual(['AI agent', 'Web User 6ae1', 'AI agent', 'BAGHDADI YOUNES']);
   });
   it('a later end-user CC is not taken for the AI (review finding 6)', () => {
     expect(

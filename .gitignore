@@ -47,3 +47,4 @@ next-env.d.ts
 # zcli packaging output
 apps/*/tmp/
 dist-zendesk/
+apps/zendesk/zcli.apps.config.json

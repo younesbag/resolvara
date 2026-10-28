@@ -33,6 +33,8 @@ export interface ZComment {
   author_id: number;
   public: boolean;
   created_at: string;
+  plain_body?: string;
+  body?: string;
   via?: { channel?: string | null; source?: { rel?: string | null } | null } | null;
 }
 export interface ZUser {

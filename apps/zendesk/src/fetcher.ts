@@ -70,6 +70,8 @@ export interface FetchSession {
   /** Tickets whose comments were read (answer or not): never re-read in this session. */
   replyAttempted: Set<number>;
   replyOrderSkipped: number;
+  /** Names of the account's agents and admins, to spot a teammate in a chat transcript. */
+  staffNames: Set<string> | null;
 }
 
 export function createSession(periodStart: Date): FetchSession {
@@ -86,6 +88,7 @@ export function createSession(periodStart: Date): FetchSession {
     replyOrder: {},
     replyAttempted: new Set(),
     replyOrderSkipped: 0,
+    staffNames: null,
   };
 }
 
@@ -99,6 +102,11 @@ interface ExportPage {
   metric_sets?: ZMetricSet[];
   after_url?: string | null;
   end_of_stream?: boolean;
+}
+
+interface UsersPage {
+  users?: ZUser[];
+  next_page?: string | null;
 }
 
 interface CommentsPage {
@@ -329,11 +337,24 @@ export function createFetcher(zaf: Zaf, rt: ZafRuntime = realRuntime): Fetcher {
         for (const u of page.users ?? []) users.set(u.id, u);
         next = page.next_page ?? null;
       }
-      const verdict = replyAfterAi(comments, [...users.values()], aiStart);
+      const verdict = replyAfterAi(comments, [...users.values()], aiStart, session.staffNames ?? undefined);
       if (verdict !== null) session.replyOrder[id] = verdict;
       session.replyAttempted.add(id);
       done += 1;
       report();
+    }
+
+    // Teammates' messaging replies exist only inside chat transcripts, by name: read the staff once.
+    if (session.staffNames === null && queue.length > 0) {
+      const names = new Set<string>();
+      let next: string | null = "/api/v2/users.json?role[]=agent&role[]=admin&per_page=100";
+      let guard = 0;
+      while (next && guard++ < 50) {
+        const page: UsersPage = await zaf.get<UsersPage>(next, hooks);
+        for (const u of page.users ?? []) if (u.name) names.add(u.name.trim());
+        next = page.next_page ?? null;
+      }
+      session.staffNames = names;
     }
 
     let cursor = 0;

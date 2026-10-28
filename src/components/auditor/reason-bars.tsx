@@ -17,7 +17,7 @@ export function ReasonBars({ report }: { report: AuditReport }) {
         phantom total.
       </p>
       {total === 0 ? (
-        <p className="mt-5 text-sm text-ink-2">No failure reasons were found in this file.</p>
+        <p className="mt-5 text-sm text-ink-2">No failure reasons were found.</p>
       ) : (
         <ul className="mt-5 space-y-4">
           {rows.map(({ r, n }) => (

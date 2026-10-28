@@ -251,7 +251,8 @@ describe("reply-order review fixes", () => {
       session.ai.tickets.set(id, ticket(id, { created_at: `2026-10-0${id}T00:00:00Z` }));
       session.ai.metricSets.set(id, { ticket_id: id, replies: 1 });
     }
-    const { zaf, calls } = fakeZaf(rt, (path) => {
+    const { zaf, calls: all } = fakeZaf(rt, (path) => {
+      if (path.startsWith("/api/v2/users.json")) return { users: [{ id: 8, role: "agent", name: "Sam" }] };
       const id = Number(path.split("/")[4]);
       if (verdictFor(id) === "gone") return new ZendeskError("http", "gone", 404);
       return {
@@ -262,25 +263,29 @@ describe("reply-order review fixes", () => {
         users: [{ id: 7, role: "end-user" }, { id: 8, role: "agent" }],
       };
     });
-    return { rt, zaf, calls, session };
+    // Comment reads only: the staff-name read runs once, before them.
+    const comments = () => all.filter((c) => c.path.includes("/comments"));
+    return { rt, zaf, all, comments, session };
   }
 
   it("never re-reads a ticket without an answer (here: deleted, 404), and counts it in the cap (finding 5)", async () => {
-    const { rt, zaf, calls, session } = setup((id) => (id % 2 ? "gone" : "marked"));
+    const { rt, zaf, all, comments, session } = setup((id) => (id % 2 ? "gone" : "marked"));
     const f = createFetcher(zaf, rt);
     const r1 = await f.checkReplyOrder(session, { cap: 2 });
     expect(r1).toMatchObject({ attempted: 2, checked: 1, candidates: 4, skipped: 2 });
     expect(f.replyOrderCandidates(session).sort()).toEqual([1, 2]);
     const r2 = await f.checkReplyOrder(session, { cap: 10 });
     expect(r2).toMatchObject({ attempted: 4, checked: 2, skipped: 0 });
-    expect(calls).toHaveLength(4); // each ticket read exactly once across both runs
+    expect(comments()).toHaveLength(4); // each ticket read exactly once across both runs
+    expect(all.filter((c) => c.path.startsWith("/api/v2/users.json"))).toHaveLength(1); // staff names read once
+    expect([...(session.staffNames ?? [])]).toEqual(["Sam"]);
     expect(f.replyOrderCandidates(session)).toEqual([]);
   });
 
   it("paces comment reads", async () => {
-    const { rt, zaf, calls, session } = setup(() => "marked");
+    const { rt, zaf, comments, session } = setup(() => "marked");
     await createFetcher(zaf, rt).checkReplyOrder(session);
-    const at = calls.map((c) => c.at).sort((a, b) => a - b);
+    const at = comments().map((c) => c.at).sort((a, b) => a - b);
     for (let i = 1; i < at.length; i++) expect(at[i] - at[i - 1]).toBeGreaterThanOrEqual(COMMENT_MIN_GAP_MS);
   });
 

@@ -92,5 +92,17 @@ per page session. Ticket subjects are used only in memory for the optional same-
 - **Not yet confirmed on real AI-agent tickets:** how Zendesk marks AI-agent comments (P0 checks 8 and 11 are
   pending). When the AI comment cannot be told apart, the order check answers "unknown" and the audit falls
   back to the reply count.
-- The author email in `manifest.json` is a placeholder (`hello@resolvara.com`); replace it before submitting
-  to the Marketplace.
+
+## Marketplace listing
+
+Zendesk partner support confirmed on 2026-10-27 (request #15430616) that a client-side app like this one is
+allowed, that a CSV of the customer's own flagged tickets is fine, and that paid Marketplace apps carry no
+revenue share today.
+
+- `manifest.json` is public (`"private": false`); the listing text is in `translations/en.json`.
+- `assets/` holds the required brand assets: `logo.png` (320x320), `logo-small.png` (128x128),
+  `icon_nav_bar.svg`, and `screenshot-0.png` to `screenshot-2.png` (1024x768, taken from the app on the
+  built-in Zendesk sample).
+- Submit: `npx @zendesk/zcli login -i`, `npx @zendesk/zcli apps:validate apps/zendesk`,
+  `npx @zendesk/zcli apps:package apps/zendesk`, then upload the zip at apps.zendesk.com
+  (Apps, Submit a new app). Privacy policy: https://resolvara.com/privacy.

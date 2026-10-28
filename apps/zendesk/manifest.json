@@ -6,7 +6,7 @@
     "url": "https://resolvara.com"
   },
   "defaultLocale": "en",
-  "private": true,
+  "private": false,
   "location": {
     "support": {
       "nav_bar": {
@@ -14,6 +14,6 @@
       }
     }
   },
-  "version": "0.2.1",
+  "version": "0.3.0",
   "frameworkVersion": "2.0"
 }
